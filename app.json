@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "name": "家里放哪儿",
+    "slug": "home-whereabouts",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"]
+  }
+}
