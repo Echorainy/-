@@ -5,6 +5,10 @@ import { Button, Chip, Empty, Field, Icon, IconButton, IconName, Sheet, colors, 
 import { HomePage, ItemRows, LayoutPage, RoomsPage } from './src/pages';
 import { ItemForm } from './src/ItemForm';
 import { loadSnapshot, saveSnapshot } from './src/storage';
+import * as Notifications from 'expo-notifications';
+import { cancelItemReminder, requestNotificationPermission, rescheduleAllReminders, scheduleItemReminder } from './src/notifications';
+
+Notifications.setNotificationHandler({ handleNotification: async () => ({ shouldPlaySound: false, shouldSetBadge: true, shouldShowBanner: true, shouldShowList: true }) });
 
 type Tab = 'home' | 'rooms' | 'items' | 'settings';
 type Editor = { kind: 'home' | 'room' | 'category'; id?: string };
@@ -28,13 +32,16 @@ export default function App() {
   const [selectedItemId, setSelectedItemId] = useState<string>();
   const [confirmation, setConfirmation] = useState<Confirmation>();
   const [hydrated, setHydrated] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const now = useToday();
   useEffect(() => {
     let active = true;
-    loadSnapshot().then(snapshot => { if (active) { setData(snapshot); setHydrated(true); } }).catch(() => { if (active) setHydrated(true); });
+    loadSnapshot().then(snapshot => { if (active) { setData(snapshot); setHydrated(true); void rescheduleAllReminders(snapshot.items); } }).catch(() => { if (active) setHydrated(true); });
     return () => { active = false; };
   }, []);
   useEffect(() => { if (hydrated) void saveSnapshot(data); }, [data, hydrated]);
+  useEffect(() => { void Notifications.getPermissionsAsync().then(p => setNotificationPermission(p.granted ? 'granted' : 'denied')); }, []);
+  useEffect(() => { void Notifications.setNotificationChannelAsync('expiry', { name: '保质期提醒', importance: Notifications.AndroidImportance.DEFAULT }); }, []);
   const home = homes.find(h => h.id === activeHomeId)!;
   const currentRooms = rooms.filter(r => r.homeId === activeHomeId);
   const currentItems = homeItems(items, rooms, activeHomeId);
@@ -92,7 +99,9 @@ export default function App() {
     const occupied = new Set(directChildren(containers, draft.roomId, draft.containerId).flatMap(c => c.cells));
     directItems(items, draft.roomId, draft.containerId).forEach(i => { if (i.cell !== undefined) occupied.add(i.cell); });
     const cell = Array.from({ length: 64 }, (_, i) => i).find(i => !occupied.has(i));
-    setData(d => ({ ...d, items: [...d.items, { ...draft, id: newId(), cell }] }));
+    const saved = { ...draft, id: newId(), cell };
+    setData(d => ({ ...d, items: [...d.items, saved] }));
+    void scheduleItemReminder(saved);
     setItemForm(undefined); return null;
   };
   const deleteRoom = (room: Room) => {
@@ -109,6 +118,12 @@ export default function App() {
       setData(d => ({ ...d, categories: d.categories.filter(c => c.id !== category.id), items: d.items.map(i => i.categoryId === category.id ? { ...i, categoryId: 'uncategorized' } : i) }));
     } });
   };
+  const deleteItem = (item: Item) => {
+    setConfirmation({ title: `删除物品“${item.name}”？`, message: '删除后无法恢复，同时会取消它的到期提醒。', run: () => {
+      setData(d => ({ ...d, items: d.items.filter(i => i.id !== item.id) }));
+      void cancelItemReminder(item.id); setSelectedItemId(undefined);
+    } });
+  };
   const chooseTab = (next: Tab) => { setTab(next); if (next === 'rooms') setLocation(undefined); if (next === 'items') setFilter('all'); };
   const nav: [Tab, IconName, string][] = [['home', 'home', '首页'], ['rooms', 'grid', '房间'], ['items', 'package', '物品'], ['settings', 'settings', '设置']];
 
@@ -123,13 +138,13 @@ export default function App() {
       {homes.map(h => <View key={h.id} style={s.headingRow}><Pressable accessibilityRole="button" accessibilityLabel={`切换到 ${h.name}`} onPress={() => switchHome(h.id)} style={[s.row, { flex: 1, minHeight: 44 }]}><Icon name={activeHomeId === h.id ? 'check-circle' : 'home'} /><Text style={[s.label, { flexShrink: 1 }]}>{h.name}</Text></Pressable><IconButton name="edit-2" label={`重命名家庭 ${h.name}`} onPress={() => openEditor('home', h)} /></View>)}
       <Button title="新建家" icon="plus" secondary onPress={() => openEditor('home')} /><Text style={s.h2}>分类标签</Text>
       {categories.map(c => <View key={c.id} style={s.headingRow}><Text style={[s.label, { flex: 1 }]}>{c.name}</Text>{!c.isSystem && <View style={s.row}><IconButton name="edit-2" label={`修改分类 ${c.name}`} onPress={() => openEditor('category', c)} /><IconButton name="trash-2" label={`删除分类 ${c.name}`} onPress={() => deleteCategory(c)} /></View>}</View>)}
-      <Button title="新增分类" icon="plus" secondary onPress={() => openEditor('category')} />
+      <Button title="新增分类" icon="plus" secondary onPress={() => openEditor('category')} /><Text style={s.h2}>到期提醒</Text><Text style={s.muted}>{notificationPermission === 'granted' ? '已允许发送本地通知' : '尚未允许发送本地通知'}</Text><Button title="启用到期提醒" icon="bell" secondary disabled={notificationPermission === 'granted'} onPress={() => { void requestNotificationPermission().then(granted => { setNotificationPermission(granted ? 'granted' : 'denied'); if (granted) void rescheduleAllReminders(items); }); }} />
     </ScrollView>}
   </View><View style={s.nav}>{nav.map(([key, icon, label]) => <Pressable key={key} accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected: tab === key }} style={s.navItem} onPress={() => chooseTab(key)}><Icon name={icon} color={tab === key ? colors.accent : colors.muted} /><Text style={[s.navLabel, tab === key && { color: colors.accent }]}>{label}</Text></Pressable>)}</View>
     {homeMenu && <Sheet title="选择家庭" onClose={() => setHomeMenu(false)}>{homes.map(h => <View key={h.id} style={s.headingRow}><Pressable accessibilityRole="button" accessibilityLabel={`切换到 ${h.name}`} onPress={() => switchHome(h.id)} style={[s.row, { flex: 1, minHeight: 48 }]}><Icon name={h.id === activeHomeId ? 'check-circle' : 'home'} /><Text style={[s.label, { flexShrink: 1 }]}>{h.name}</Text></Pressable><IconButton name="edit-2" label={`重命名家庭 ${h.name}`} onPress={() => openEditor('home', h)} /></View>)}<Button title="新建家" icon="plus" onPress={() => openEditor('home')} /></Sheet>}
     {editor && <Sheet title={`${editor.id ? '重命名' : '新增'}${editor.kind === 'home' ? '家庭' : editor.kind === 'room' ? '房间' : '分类'}`} onClose={() => setEditor(undefined)}><Field label="名称" value={draftName} onChangeText={setDraftName} />{!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}<Button title="保存名称" onPress={saveName} /></Sheet>}
     {itemForm && <ItemForm rooms={currentRooms} containers={containers} categories={categories} initialLocation={itemForm.initialLocation} onClose={() => setItemForm(undefined)} onSave={saveItem} />}
-    {selectedItem && <Sheet title={selectedItem.name} onClose={() => setSelectedItemId(undefined)}><View style={{ gap: 12 }}><Text style={s.muted}>{path(selectedItem)}</Text><Text style={s.label}>分类：{categoryName(selectedItem.categoryId)}</Text><Text style={s.muted}>{selectedItem.expiry ? `过期日期：${selectedItem.expiry}` : '未设置保质期'}</Text></View></Sheet>}
+    {selectedItem && <Sheet title={selectedItem.name} onClose={() => setSelectedItemId(undefined)}><View style={{ gap: 12 }}><Text style={s.muted}>{path(selectedItem)}</Text><Text style={s.label}>分类：{categoryName(selectedItem.categoryId)}</Text><Text style={s.muted}>{selectedItem.expiry ? `过期日期：${selectedItem.expiry}` : '未设置保质期'}</Text><Button title="删除物品" icon="trash-2" secondary onPress={() => deleteItem(selectedItem)} /></View></Sheet>}
     {confirmation && <Sheet title={confirmation.title} onClose={() => setConfirmation(undefined)}><Text style={s.muted}>{confirmation.message}</Text><Button title="确认删除" onPress={() => { confirmation.run(); setConfirmation(undefined); }} /><Button title="取消" secondary onPress={() => setConfirmation(undefined)} /></Sheet>}
   </SafeAreaView>;
 }
