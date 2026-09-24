@@ -41,6 +41,27 @@ export function directChildren(containers: Container[], roomId: string, containe
 export function directItems(items: Item[], roomId: string, containerId?: string) {
   return items.filter(i => i.roomId === roomId && i.containerId === containerId);
 }
+export function containerDescendants(containers: Container[], containerId: string) {
+  const ids = new Set<string>([containerId]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const container of containers) {
+      if (container.parentId && ids.has(container.parentId) && !ids.has(container.id)) {
+        ids.add(container.id);
+        changed = true;
+      }
+    }
+  }
+  return containers.filter(container => ids.has(container.id));
+}
+export function removeContainerContents(containers: Container[], items: Item[], containerId: string) {
+  const ids = new Set(containerDescendants(containers, containerId).map(container => container.id));
+  return {
+    containers: containers.filter(container => !ids.has(container.id)),
+    items: items.filter(item => !item.containerId || !ids.has(item.containerId)),
+  };
+}
 export function locationPath(roomId: string, containerId: string | undefined, homes: Home[], rooms: Room[], containers: Container[]) {
   const room = rooms.find(r => r.id === roomId);
   if (!room) return '';

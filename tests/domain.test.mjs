@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { remainingDays, statistics, homeItems, locationPath, validateName, directChildren, directItems } from '../src/domain.ts';
+import { remainingDays, statistics, homeItems, locationPath, validateName, directChildren, directItems, containerDescendants, removeContainerContents } from '../src/domain.ts';
 
 const now = new Date(2026, 8, 24, 23, 59);
 const dates = ['2026-09-23', '2026-09-24', '2026-10-01', '2026-10-02', '2026-10-24', '2026-10-25', undefined];
@@ -35,4 +35,19 @@ test('trimmed names must be unique in their scope', () => {
   assert.ok(validateName(' 我的家 ', homes));
   assert.equal(validateName(' 我的家 ', homes, 'a'), null);
   assert.equal(validateName('新家', homes), null);
+});
+test('container descendants include nested modules and remove their items', () => {
+  const containers = [
+    { id: 'cabinet', roomId: 'r', name: '柜子', level: 2, cells: [] },
+    { id: 'drawer', roomId: 'r', name: '抽屉', parentId: 'cabinet', level: 3, cells: [] },
+  ];
+  const items = [
+    { id: 'a', roomId: 'r', containerId: 'cabinet', categoryId: 'other', name: 'A', reminderDays: 7 },
+    { id: 'b', roomId: 'r', containerId: 'drawer', categoryId: 'other', name: 'B', reminderDays: 7 },
+    { id: 'c', roomId: 'r', categoryId: 'other', name: 'C', reminderDays: 7 },
+  ];
+  assert.deepEqual(containerDescendants(containers, 'cabinet').map(c => c.id), ['cabinet', 'drawer']);
+  const result = removeContainerContents(containers, items, 'cabinet');
+  assert.deepEqual(result.containers, []);
+  assert.deepEqual(result.items.map(i => i.id), ['c']);
 });
