@@ -113,6 +113,7 @@ export default function App() {
       setLocation(container.parentId ? { roomId: container.roomId, containerId: container.parentId } : { roomId: container.roomId });
     } });
   };
+  const updateContainerCells = (id: string, cells: number[]) => setData(d => ({ ...d, containers: d.containers.map(c => c.id === id ? { ...c, cells: [...new Set(cells)].slice(0, 64) } : c) }));
   const deleteRoom = (room: Room) => {
     const moduleCount = containers.filter(c => c.roomId === room.id).length;
     const itemCount = items.filter(i => i.roomId === room.id).length;
@@ -140,8 +141,8 @@ export default function App() {
   return <SafeAreaView style={s.screen}><StatusBar barStyle="dark-content" /><View style={s.content}>
     {tab === 'home' && <HomePage home={home} items={currentItems} query={query} setQuery={setQuery} searchResults={searchResults} onHomes={() => setHomeMenu(true)} onFilter={value => { setFilter(value); setTab('items'); }} onAdd={() => beginItem()} renderItems={renderItems} now={now} />}
     {tab === 'rooms' && (activeRoom && location
-      ? <LayoutPage room={activeRoom} location={location} containers={containers} items={items} path={path(location)} onBack={back} onEnter={id => setLocation({ roomId: activeRoom.id, containerId: id })} onItem={i => setSelectedItemId(i.id)} onAdd={() => beginItem(location)} onCreateContainer={() => openEditor('container', undefined, { roomId: activeRoom.id, parentId: location.containerId })} onRenameContainer={c => openEditor('container', c)} onDeleteContainer={deleteContainer} onDelete={() => deleteRoom(activeRoom)} renderItems={renderItems} />
-      : <RoomsPage home={home} rooms={currentRooms} containers={containers} items={currentItems} onOpen={id => setLocation({ roomId: id })} onCreate={() => openEditor('room')} onRename={room => openEditor('room', room)} />)}
+      ? <LayoutPage room={activeRoom} location={location} containers={containers} items={items} path={path(location)} onBack={back} onEnter={id => setLocation({ roomId: activeRoom.id, containerId: id })} onItem={i => setSelectedItemId(i.id)} onAdd={() => beginItem(location)} onCreateContainer={() => openEditor('container', undefined, { roomId: activeRoom.id, parentId: location.containerId })} onRenameContainer={c => openEditor('container', c)} onDeleteContainer={deleteContainer} onUpdateContainerCells={updateContainerCells} onDelete={() => deleteRoom(activeRoom)} renderItems={renderItems} />
+      : <RoomsPage home={home} rooms={currentRooms} containers={containers} items={currentItems} onOpen={id => setLocation({ roomId: id })} onCreate={() => openEditor('room')} onRename={room => openEditor('room', room)} onDelete={deleteRoom} />)}
     {tab === 'items' && <ScrollView contentContainerStyle={s.page}><Text style={s.title}>物品</Text><Text style={s.muted}>{home.name}</Text><View style={s.wrap}>{(Object.keys(filterLabels) as Filter[]).map(key => <Chip key={key} label={filterLabels[key]} selected={filter === key} onPress={() => setFilter(key)} />)}</View>{renderItems(currentItems.filter(i => matchesFilter(i, filter, now)))}<Button title="记录物品" icon="plus" onPress={() => beginItem()} /></ScrollView>}
     {tab === 'settings' && <ScrollView contentContainerStyle={s.page}><Text style={s.title}>设置</Text><Text style={s.h2}>家庭管理</Text>
       {homes.map(h => <View key={h.id} style={s.headingRow}><Pressable accessibilityRole="button" accessibilityLabel={`切换到 ${h.name}`} onPress={() => switchHome(h.id)} style={[s.row, { flex: 1, minHeight: 44 }]}><Icon name={activeHomeId === h.id ? 'check-circle' : 'home'} /><Text style={[s.label, { flexShrink: 1 }]}>{h.name}</Text></Pressable><IconButton name="edit-2" label={`重命名家庭 ${h.name}`} onPress={() => openEditor('home', h)} /></View>)}

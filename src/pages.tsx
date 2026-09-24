@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Container, Filter, Home, Item, Location, Room, directChildren, directItems, filterLabels, remainingDays, statistics } from './domain';
 import { Button, Empty, Icon, IconButton, colors, s } from './ui';
@@ -24,34 +24,39 @@ export function HomePage({ home, items, query, setQuery, searchResults, onHomes,
     <Button title="记录物品" icon="plus" onPress={onAdd} />
   </ScrollView>;
 }
-export function Grid({ children, items, preview = false, onContainer, onItem }: { children: Container[]; items: Item[]; preview?: boolean; onContainer?: (id: string) => void; onItem?: (item: Item) => void }) {
+export function Grid({ children, items, preview = false, onContainer, onItem, editingId, draftCells, onToggleCell }: { children: Container[]; items: Item[]; preview?: boolean; onContainer?: (id: string) => void; onItem?: (item: Item) => void; editingId?: string; draftCells?: number[]; onToggleCell?: (cell: number) => void }) {
   const [width, setWidth] = useState(0);
+  const painted = useRef(new Set<number>());
   const size = width / 8;
-  return <View testID={preview ? 'grid-preview' : 'layout-grid'} onLayout={e => setWidth(e.nativeEvent.layout.width)} style={{ width: '100%', aspectRatio: 1, backgroundColor: '#FFF', overflow: 'hidden' }}>
+  const paintAt = (x: number, y: number) => { if (!editingId || size <= 0) return; const cell = Math.max(0, Math.min(63, Math.floor(y / size) * 8 + Math.floor(x / size))); if (painted.current.has(cell)) return; painted.current.add(cell); onToggleCell?.(cell); };
+  return <View testID={preview ? 'grid-preview' : 'layout-grid'} onLayout={e => setWidth(e.nativeEvent.layout.width)} onStartShouldSetResponderCapture={() => !!editingId} onResponderGrant={e => { painted.current.clear(); paintAt(e.nativeEvent.locationX, e.nativeEvent.locationY); }} onResponderMove={e => paintAt(e.nativeEvent.locationX, e.nativeEvent.locationY)} onResponderRelease={() => painted.current.clear()} style={{ width: '100%', aspectRatio: 1, backgroundColor: '#FFF', overflow: 'hidden' }}>
     {width > 0 && Array.from({ length: 64 }, (_, cell) => {
-      const child = children.find(c => c.cells.includes(cell)); const item = items.find(i => i.cell === cell);
-      return <Pressable key={cell} testID={preview ? undefined : `cell-${cell}`} accessibilityRole={child || item ? 'button' : undefined} accessibilityLabel={child ? `进入模块 ${child.name}` : item ? `查看物品 ${item.name}` : undefined} disabled={preview || (!child && !item)} onPress={() => child ? onContainer?.(child.id) : item && onItem?.(item)} style={{ position: 'absolute', left: (cell % 8) * size, top: Math.floor(cell / 8) * size, width: size, height: size, borderWidth: .5, borderColor: colors.line, backgroundColor: child ? '#B9D7C6' : item ? '#F4D6C7' : '#FAFCFB', padding: preview ? 0 : 2, justifyContent: 'center', overflow: 'hidden' }}>
+      const child = children.find(c => c.cells.includes(cell)); const item = items.find(i => i.cell === cell); const editing = !!editingId; const selected = !!draftCells?.includes(cell);
+      return <Pressable key={cell} testID={preview ? undefined : `cell-${cell}`} accessibilityRole={child || item || editing ? 'button' : undefined} accessibilityLabel={editing ? `编辑第 ${cell + 1} 格` : child ? `进入模块 ${child.name}` : item ? `查看物品 ${item.name}` : undefined} disabled={preview || (!editing && !child && !item)} onPress={() => !editing && (child ? onContainer?.(child.id) : item && onItem?.(item))} style={{ position: 'absolute', left: (cell % 8) * size, top: Math.floor(cell / 8) * size, width: size, height: size, borderWidth: .5, borderColor: colors.line, backgroundColor: editing && selected ? '#79B89B' : child ? '#B9D7C6' : item ? '#F4D6C7' : '#FAFCFB', padding: preview ? 0 : 2, justifyContent: 'center', overflow: 'hidden' }}>
         {!preview && <Text numberOfLines={2} style={{ fontSize: 10, textAlign: 'center', color: colors.ink }}>{child?.cells[0] === cell ? child.name : item?.name}</Text>}
       </Pressable>;
     })}
   </View>;
 }
-export function RoomsPage({ home, rooms, items, containers, onOpen, onCreate, onRename }: { home: Home; rooms: Room[]; items: Item[]; containers: Container[]; onOpen: (id: string) => void; onCreate: () => void; onRename: (room: Room) => void }) {
+export function RoomsPage({ home, rooms, items, containers, onOpen, onCreate, onRename, onDelete }: { home: Home; rooms: Room[]; items: Item[]; containers: Container[]; onOpen: (id: string) => void; onCreate: () => void; onRename: (room: Room) => void; onDelete: (room: Room) => void }) {
   return <ScrollView contentContainerStyle={s.page}><View><Text style={s.title}>房间</Text><Text style={s.muted}>{home.name}</Text></View>
     {!rooms.length && <Empty text="这个家还没有房间" />}
     <View style={s.wrap}>{rooms.map(room => <View key={room.id} style={[s.card, { width: '48%' }]}>
       <Pressable accessibilityRole="button" accessibilityLabel={`打开房间 ${room.name}`} onPress={() => onOpen(room.id)} style={{ gap: 10 }}><Grid preview children={directChildren(containers, room.id)} items={directItems(items, room.id)} /><Text style={s.h2}>{room.name}</Text><Text style={s.muted}>{items.filter(i => i.roomId === room.id).length} 件物品</Text></Pressable>
-      <IconButton name="edit-2" label={`重命名房间 ${room.name}`} onPress={() => onRename(room)} />
+      <View style={s.row}><IconButton name="edit-2" label={`重命名房间 ${room.name}`} onPress={() => onRename(room)} /><IconButton name="trash-2" label={`删除房间 ${room.name}`} onPress={() => onDelete(room)} /></View>
     </View>)}</View><Button title="新增房间" icon="plus" onPress={onCreate} />
   </ScrollView>;
 }
-export function LayoutPage({ room, location, containers, items, path, onBack, onEnter, onItem, onAdd, onCreateContainer, onRenameContainer, onDeleteContainer, onDelete, renderItems }: { room: Room; location: Location; containers: Container[]; items: Item[]; path: string; onBack: () => void; onEnter: (id: string) => void; onItem: (item: Item) => void; onAdd: () => void; onCreateContainer: () => void; onRenameContainer: (container: Container) => void; onDeleteContainer: (container: Container) => void; onDelete: () => void; renderItems: (items: Item[]) => React.ReactNode }) {
+export function LayoutPage({ room, location, containers, items, path, onBack, onEnter, onItem, onAdd, onCreateContainer, onRenameContainer, onDeleteContainer, onUpdateContainerCells, onDelete, renderItems }: { room: Room; location: Location; containers: Container[]; items: Item[]; path: string; onBack: () => void; onEnter: (id: string) => void; onItem: (item: Item) => void; onAdd: () => void; onCreateContainer: () => void; onRenameContainer: (container: Container) => void; onDeleteContainer: (container: Container) => void; onUpdateContainerCells: (id: string, cells: number[]) => void; onDelete: () => void; renderItems: (items: Item[]) => React.ReactNode }) {
+  const [editingId, setEditingId] = useState<string>();
+  const [draftCells, setDraftCells] = useState<number[]>([]);
   const current = containers.find(c => c.id === location.containerId);
   const children = directChildren(containers, room.id, location.containerId);
   const contents = directItems(items, room.id, location.containerId);
   return <ScrollView contentContainerStyle={s.page}><View style={s.headingRow}><IconButton name="arrow-left" label="返回上一级" onPress={onBack} /><Text style={[s.h2, { flex: 1 }]}>{current?.name ?? room.name}</Text>{current ? <View style={s.row}><IconButton name="edit-2" label={`重命名模块 ${current.name}`} onPress={() => onRenameContainer(current)} /><IconButton name="trash-2" label={`删除模块 ${current.name}`} onPress={() => onDeleteContainer(current)} /></View> : <IconButton name="trash-2" label="删除房间" onPress={onDelete} />}</View>
-    <Text style={s.muted}>{path}</Text><View style={{ width: '100%', maxWidth: 480, alignSelf: 'center' }}><Grid children={children} items={contents} onContainer={onEnter} onItem={onItem} /></View>
-    {children.map(child => <View key={child.id} style={s.itemRow}><Pressable accessibilityRole="button" accessibilityLabel={`打开模块 ${child.name}`} onPress={() => onEnter(child.id)} style={[s.row, { flex: 1 }]}><Icon name="archive" /><Text style={[s.label, { flex: 1 }]}>{child.name}</Text><Icon name="chevron-right" /></Pressable><IconButton name="edit-2" label={`重命名模块 ${child.name}`} onPress={() => onRenameContainer(child)} /><IconButton name="trash-2" label={`删除模块 ${child.name}`} onPress={() => onDeleteContainer(child)} /></View>)}
+    <Text style={s.muted}>{path}</Text><View style={{ width: '100%', maxWidth: 480, alignSelf: 'center' }}><Grid children={children} items={contents} onContainer={onEnter} onItem={onItem} editingId={editingId} draftCells={draftCells} onToggleCell={cell => setDraftCells(cells => cells.includes(cell) ? cells.filter(c => c !== cell) : [...cells, cell])} /></View>
+    {editingId && <View style={s.row}><Button title="保存网格" onPress={() => { onUpdateContainerCells(editingId, draftCells); setEditingId(undefined); }} /><Button title="取消" secondary onPress={() => setEditingId(undefined)} /></View>}
+    {children.map(child => <View key={child.id} style={s.itemRow}><Pressable accessibilityRole="button" accessibilityLabel={`打开模块 ${child.name}`} onPress={() => onEnter(child.id)} style={[s.row, { flex: 1 }]}><Icon name="archive" /><Text style={[s.label, { flex: 1 }]}>{child.name}</Text><Icon name="chevron-right" /></Pressable><IconButton name="edit-2" label={`编辑模块格子 ${child.name}`} onPress={() => { setEditingId(child.id); setDraftCells(child.cells); }} /><IconButton name="edit-2" label={`重命名模块 ${child.name}`} onPress={() => onRenameContainer(child)} /><IconButton name="trash-2" label={`删除模块 ${child.name}`} onPress={() => onDeleteContainer(child)} /></View>)}
     <Text style={s.h2}>直属物品</Text>{renderItems(contents)}<Button title="在此位置记录物品" icon="plus" onPress={onAdd} />{(!current || current.level < 3) && <Button title="新增模块" icon="archive" secondary onPress={onCreateContainer} />}
   </ScrollView>;
 }
