@@ -5,10 +5,8 @@ import { Button, Chip, Empty, Field, Icon, IconButton, IconName, Sheet, colors, 
 import { HomePage, ItemRows, LayoutPage, RoomsPage } from './src/pages';
 import { ItemForm } from './src/ItemForm';
 import { loadSnapshot, saveSnapshot } from './src/storage';
-import * as Notifications from 'expo-notifications';
-import { cancelItemReminder, requestNotificationPermission, rescheduleAllReminders, scheduleItemReminder } from './src/notifications';
+import { initializeNotifications, notificationsAvailable, cancelItemReminder, requestNotificationPermission, rescheduleAllReminders, scheduleItemReminder } from './src/notifications';
 
-Notifications.setNotificationHandler({ handleNotification: async () => ({ shouldPlaySound: false, shouldSetBadge: true, shouldShowBanner: true, shouldShowList: true }) });
 
 type Tab = 'home' | 'rooms' | 'items' | 'settings';
 type Editor = { kind: 'home' | 'room' | 'category'; id?: string };
@@ -40,8 +38,7 @@ export default function App() {
     return () => { active = false; };
   }, []);
   useEffect(() => { if (hydrated) void saveSnapshot(data); }, [data, hydrated]);
-  useEffect(() => { void Notifications.getPermissionsAsync().then(p => setNotificationPermission(p.granted ? 'granted' : 'denied')); }, []);
-  useEffect(() => { void Notifications.setNotificationChannelAsync('expiry', { name: '保质期提醒', importance: Notifications.AndroidImportance.DEFAULT }); }, []);
+  useEffect(() => { void initializeNotifications().then(granted => setNotificationPermission(granted ? 'granted' : 'denied')).catch(() => setNotificationPermission('denied')); }, []);
   const home = homes.find(h => h.id === activeHomeId)!;
   const currentRooms = rooms.filter(r => r.homeId === activeHomeId);
   const currentItems = homeItems(items, rooms, activeHomeId);
@@ -138,7 +135,7 @@ export default function App() {
       {homes.map(h => <View key={h.id} style={s.headingRow}><Pressable accessibilityRole="button" accessibilityLabel={`切换到 ${h.name}`} onPress={() => switchHome(h.id)} style={[s.row, { flex: 1, minHeight: 44 }]}><Icon name={activeHomeId === h.id ? 'check-circle' : 'home'} /><Text style={[s.label, { flexShrink: 1 }]}>{h.name}</Text></Pressable><IconButton name="edit-2" label={`重命名家庭 ${h.name}`} onPress={() => openEditor('home', h)} /></View>)}
       <Button title="新建家" icon="plus" secondary onPress={() => openEditor('home')} /><Text style={s.h2}>分类标签</Text>
       {categories.map(c => <View key={c.id} style={s.headingRow}><Text style={[s.label, { flex: 1 }]}>{c.name}</Text>{!c.isSystem && <View style={s.row}><IconButton name="edit-2" label={`修改分类 ${c.name}`} onPress={() => openEditor('category', c)} /><IconButton name="trash-2" label={`删除分类 ${c.name}`} onPress={() => deleteCategory(c)} /></View>}</View>)}
-      <Button title="新增分类" icon="plus" secondary onPress={() => openEditor('category')} /><Text style={s.h2}>到期提醒</Text><Text style={s.muted}>{notificationPermission === 'granted' ? '已允许发送本地通知' : '尚未允许发送本地通知'}</Text><Button title="启用到期提醒" icon="bell" secondary disabled={notificationPermission === 'granted'} onPress={() => { void requestNotificationPermission().then(granted => { setNotificationPermission(granted ? 'granted' : 'denied'); if (granted) void rescheduleAllReminders(items); }); }} />
+      <Button title="新增分类" icon="plus" secondary onPress={() => openEditor('category')} /><Text style={s.h2}>到期提醒</Text><Text style={s.muted}>{!notificationsAvailable ? '当前预览环境不启用系统通知，请安装独立开发版测试到期提醒。' : notificationPermission === 'granted' ? '已允许发送本地通知' : '尚未允许发送本地通知'}</Text><Button title="启用到期提醒" icon="bell" secondary disabled={!notificationsAvailable || notificationPermission === 'granted'} onPress={() => { void requestNotificationPermission().then(granted => { setNotificationPermission(granted ? 'granted' : 'denied'); if (granted) void rescheduleAllReminders(items); }); }} />
     </ScrollView>}
   </View><View style={s.nav}>{nav.map(([key, icon, label]) => <Pressable key={key} accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected: tab === key }} style={s.navItem} onPress={() => chooseTab(key)}><Icon name={icon} color={tab === key ? colors.accent : colors.muted} /><Text style={[s.navLabel, tab === key && { color: colors.accent }]}>{label}</Text></Pressable>)}</View>
     {homeMenu && <Sheet title="选择家庭" onClose={() => setHomeMenu(false)}>{homes.map(h => <View key={h.id} style={s.headingRow}><Pressable accessibilityRole="button" accessibilityLabel={`切换到 ${h.name}`} onPress={() => switchHome(h.id)} style={[s.row, { flex: 1, minHeight: 48 }]}><Icon name={h.id === activeHomeId ? 'check-circle' : 'home'} /><Text style={[s.label, { flexShrink: 1 }]}>{h.name}</Text></Pressable><IconButton name="edit-2" label={`重命名家庭 ${h.name}`} onPress={() => openEditor('home', h)} /></View>)}<Button title="新建家" icon="plus" onPress={() => openEditor('home')} /></Sheet>}
