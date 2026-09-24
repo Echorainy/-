@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { BackHandler, Pressable, SafeAreaView, ScrollView, StatusBar, Text, View } from 'react-native';
+import { ActivityIndicator, BackHandler, Pressable, SafeAreaView, ScrollView, StatusBar, Text, View } from 'react-native';
 import { Category, Filter, Home, Item, Location, Room, createInitialData, directChildren, directItems, filterLabels, homeItems, locationPath, matchesFilter, validateName } from './src/domain';
 import { Button, Chip, Empty, Field, Icon, IconButton, IconName, Sheet, colors, s, useToday } from './src/ui';
 import { HomePage, ItemRows, LayoutPage, RoomsPage } from './src/pages';
 import { ItemForm } from './src/ItemForm';
+import { loadSnapshot, saveSnapshot } from './src/storage';
 
 type Tab = 'home' | 'rooms' | 'items' | 'settings';
 type Editor = { kind: 'home' | 'room' | 'category'; id?: string };
@@ -26,7 +27,14 @@ export default function App() {
   const [itemForm, setItemForm] = useState<{ initialLocation?: Location }>();
   const [selectedItemId, setSelectedItemId] = useState<string>();
   const [confirmation, setConfirmation] = useState<Confirmation>();
+  const [hydrated, setHydrated] = useState(false);
   const now = useToday();
+  useEffect(() => {
+    let active = true;
+    loadSnapshot().then(snapshot => { if (active) { setData(snapshot); setHydrated(true); } }).catch(() => { if (active) setHydrated(true); });
+    return () => { active = false; };
+  }, []);
+  useEffect(() => { if (hydrated) void saveSnapshot(data); }, [data, hydrated]);
   const home = homes.find(h => h.id === activeHomeId)!;
   const currentRooms = rooms.filter(r => r.homeId === activeHomeId);
   const currentItems = homeItems(items, rooms, activeHomeId);
@@ -104,6 +112,7 @@ export default function App() {
   const chooseTab = (next: Tab) => { setTab(next); if (next === 'rooms') setLocation(undefined); if (next === 'items') setFilter('all'); };
   const nav: [Tab, IconName, string][] = [['home', 'home', '首页'], ['rooms', 'grid', '房间'], ['items', 'package', '物品'], ['settings', 'settings', '设置']];
 
+  if (!hydrated) return <SafeAreaView style={s.screen}><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }}><ActivityIndicator color={colors.accent} /><Text style={s.muted}>正在读取本地数据…</Text></View></SafeAreaView>;
   return <SafeAreaView style={s.screen}><StatusBar barStyle="dark-content" /><View style={s.content}>
     {tab === 'home' && <HomePage home={home} items={currentItems} query={query} setQuery={setQuery} searchResults={searchResults} onHomes={() => setHomeMenu(true)} onFilter={value => { setFilter(value); setTab('items'); }} onAdd={() => beginItem()} renderItems={renderItems} now={now} />}
     {tab === 'rooms' && (activeRoom && location
