@@ -10,6 +10,13 @@ export const MODULE_COLORS = ['#D6B59A', '#C98F7A', '#C9A0A0', '#D2AAA0', '#A3AD
 export const DEFAULT_MODULE_COLOR = '#A3AD96';
 export function isValidHexColor(value: string) { return /^#[0-9A-Fa-f]{6}$/.test(value.trim()); }
 export function normalizeModuleColor(value?: string) { return value && isValidHexColor(value) ? value.trim().toUpperCase() : DEFAULT_MODULE_COLOR; }
+export function moduleColorTextColor(value?: string) {
+  const color = normalizeModuleColor(value);
+  const red = Number.parseInt(color.slice(1, 3), 16);
+  const green = Number.parseInt(color.slice(3, 5), 16);
+  const blue = Number.parseInt(color.slice(5, 7), 16);
+  return 0.299 * red + 0.587 * green + 0.114 * blue >= 150 ? '#242C2A' : '#FFFDF8';
+}
 
 export function localDate(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
