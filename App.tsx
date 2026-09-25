@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, BackHandler, Pressable, SafeAreaView, ScrollView, StatusBar, Text, View } from 'react-native';
 import { Category, Container, Filter, Home, Item, Location, Room, containerDescendants, createInitialData, directChildren, directItems, filterLabels, homeItems, locationPath, matchesFilter, removeContainerContents, validateName } from './src/domain';
+import { validateCells } from './src/grid-edit';
 import { Button, Chip, Empty, Field, Icon, IconButton, IconName, Sheet, colors, s, useToday } from './src/ui';
 import { HomePage, ItemRows, LayoutPage, RoomsPage } from './src/pages';
 import { ItemForm } from './src/ItemForm';
@@ -113,7 +114,7 @@ export default function App() {
       setLocation(container.parentId ? { roomId: container.roomId, containerId: container.parentId } : { roomId: container.roomId });
     } });
   };
-  const updateContainerCells = (id: string, cells: number[]) => setData(d => ({ ...d, containers: d.containers.map(c => c.id === id ? { ...c, cells: [...new Set(cells)].slice(0, 64) } : c) }));
+  const updateContainerCells = (id: string, cells: number[]) => { const message = validateCells(id, cells, containers, items); if (message) return message; setData(d => ({ ...d, containers: d.containers.map(c => c.id === id ? { ...c, cells: [...new Set(cells)] } : c) })); return null; };
   const deleteRoom = (room: Room) => {
     const moduleCount = containers.filter(c => c.roomId === room.id).length;
     const itemCount = items.filter(i => i.roomId === room.id).length;
