@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, BackHandler, Pressable, SafeAreaView, ScrollView, StatusBar, Text, View } from 'react-native';
-import { Category, Container, Filter, Home, Item, Location, Room, containerDescendants, createInitialData, directChildren, directItems, filterLabels, homeItems, locationPath, matchesFilter, removeContainerContents, validateName } from './src/domain';
-import { validateCells } from './src/grid-edit';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Category, Container, Filter, Home, Item, Location, Room, DEFAULT_MODULE_COLOR, MODULE_COLORS, containerDescendants, createInitialData, directChildren, directItems, filterLabels, homeItems, isValidHexColor, locationPath, matchesFilter, normalizeModuleColor, removeContainerContents, validateName } from './src/domain';
+import { occupiedCells, validateCells } from './src/grid-edit';
 import { Button, Chip, Empty, Field, Icon, IconButton, IconName, Sheet, colors, s, useToday } from './src/ui';
 import { HomePage, ItemRows, LayoutPage, RoomsPage } from './src/pages';
 import { ItemForm } from './src/ItemForm';
@@ -26,6 +27,7 @@ export default function App() {
   const [homeMenu, setHomeMenu] = useState(false);
   const [editor, setEditor] = useState<Editor>();
   const [draftName, setDraftName] = useState('');
+  const [draftColor, setDraftColor] = useState(DEFAULT_MODULE_COLOR);
   const [error, setError] = useState('');
   const [itemForm, setItemForm] = useState<{ initialLocation?: Location; item?: Item }>();
   const [selectedItemId, setSelectedItemId] = useState<string>();
@@ -68,7 +70,7 @@ export default function App() {
     setHomeMenu(false); setItemForm(undefined); setSelectedItemId(undefined);
   };
   const openEditor = (kind: Editor['kind'], entity?: Home | Room | Category | Container, context?: { roomId?: string; parentId?: string }) => {
-    setHomeMenu(false); setEditor({ kind, id: entity?.id, roomId: context?.roomId ?? (entity as Container | undefined)?.roomId, parentId: context?.parentId ?? (entity as Container | undefined)?.parentId }); setDraftName(entity?.name ?? ''); setError('');
+    setHomeMenu(false); setEditor({ kind, id: entity?.id, roomId: context?.roomId ?? (entity as Container | undefined)?.roomId, parentId: context?.parentId ?? (entity as Container | undefined)?.parentId }); setDraftName(entity?.name ?? ''); setDraftColor(kind === 'container' ? normalizeModuleColor((entity as Container | undefined)?.color) : DEFAULT_MODULE_COLOR); setError('');
   };
   const saveName = () => {
     if (!editor) return;
@@ -76,6 +78,7 @@ export default function App() {
     const message = validateName(draftName, scope, editor.id);
     if (message) return setError(message);
     if (editor.kind === 'category' && editor.id === 'uncategorized') return setError('未分类不能修改');
+    if (editor.kind === 'container' && !isValidHexColor(draftColor)) return setError('请输入有效的 HEX 颜色，如 #C98F7A');
     const name = draftName.trim(); const id = editor.id ?? newId();
     if (editor.kind === 'home') {
       setData(d => ({ ...d, homes: editor.id ? d.homes.map(h => h.id === id ? { ...h, name } : h) : [...d.homes, { id, name }] }));
@@ -86,7 +89,8 @@ export default function App() {
       setData(d => ({ ...d, categories: editor.id ? d.categories.map(c => c.id === id ? { ...c, name } : c) : [...d.categories, { id, name, isSystem: false }] }));
     } else {
       const level = editor.parentId ? 3 : 2;
-      setData(d => ({ ...d, containers: editor.id ? d.containers.map(c => c.id === id ? { ...c, name } : c) : [...d.containers, { id, name, roomId: editor.roomId!, parentId: editor.parentId, level, cells: firstFreeCells(d.containers, editor.roomId!, editor.parentId) }] }));
+      const color = normalizeModuleColor(draftColor);
+      setData(d => ({ ...d, containers: editor.id ? d.containers.map(c => c.id === id ? { ...c, name, color } : c) : [...d.containers, { id, name, roomId: editor.roomId!, parentId: editor.parentId, level, cells: [], color }] }));
     }
     setEditor(undefined);
   };
@@ -97,8 +101,7 @@ export default function App() {
   const saveItem = (draft: Omit<Item, 'id'>, editingId?: string) => {
     if (!currentRooms.some(r => r.id === draft.roomId)) return '请选择当前家的房间';
     if (draft.containerId && !containers.some(c => c.id === draft.containerId && c.roomId === draft.roomId)) return '请选择有效模块';
-    const occupied = new Set(directChildren(containers, draft.roomId, draft.containerId).flatMap(c => c.cells));
-    directItems(items, draft.roomId, draft.containerId).forEach(i => { if (i.cell !== undefined && i.id !== editingId) occupied.add(i.cell); });
+    const occupied = occupiedCells(draft.roomId, draft.containerId, containers, items, undefined, editingId);
     const cell = draft.cell !== undefined && !occupied.has(draft.cell) ? draft.cell : Array.from({ length: 64 }, (_, i) => i).find(i => !occupied.has(i));
     const saved = { ...draft, id: editingId ?? newId(), cell };
     setData(d => ({ ...d, items: editingId ? d.items.map(i => i.id === editingId ? saved : i) : [...d.items, saved] }));
@@ -139,7 +142,7 @@ export default function App() {
   const nav: [Tab, IconName, string][] = [['home', 'home', '首页'], ['rooms', 'grid', '房间'], ['items', 'package', '物品'], ['settings', 'settings', '设置']];
 
   if (!hydrated) return <SafeAreaView style={s.screen}><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }}><ActivityIndicator color={colors.accent} /><Text style={s.muted}>正在读取本地数据…</Text></View></SafeAreaView>;
-  return <SafeAreaView style={s.screen}><StatusBar barStyle="dark-content" /><View style={s.content}>
+  return <GestureHandlerRootView style={{ flex: 1 }}><SafeAreaView style={s.screen}><StatusBar barStyle="dark-content" /><View style={s.content}>
     {tab === 'home' && <HomePage home={home} items={currentItems} query={query} setQuery={setQuery} searchResults={searchResults} onHomes={() => setHomeMenu(true)} onFilter={value => { setFilter(value); setTab('items'); }} onAdd={() => beginItem()} renderItems={renderItems} now={now} />}
     {tab === 'rooms' && (activeRoom && location
       ? <LayoutPage room={activeRoom} location={location} containers={containers} items={items} path={path(location)} onBack={back} onEnter={id => setLocation({ roomId: activeRoom.id, containerId: id })} onItem={i => setSelectedItemId(i.id)} onAdd={() => beginItem(location)} onCreateContainer={() => openEditor('container', undefined, { roomId: activeRoom.id, parentId: location.containerId })} onRenameContainer={c => openEditor('container', c)} onDeleteContainer={deleteContainer} onUpdateContainerCells={updateContainerCells} onDelete={() => deleteRoom(activeRoom)} renderItems={renderItems} />
@@ -153,15 +156,9 @@ export default function App() {
     </ScrollView>}
   </View><View style={s.nav}>{nav.map(([key, icon, label]) => <Pressable key={key} accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected: tab === key }} style={s.navItem} onPress={() => chooseTab(key)}><Icon name={icon} color={tab === key ? colors.accent : colors.muted} /><Text style={[s.navLabel, tab === key && { color: colors.accent }]}>{label}</Text></Pressable>)}</View>
     {homeMenu && <Sheet title="选择家庭" onClose={() => setHomeMenu(false)}>{homes.map(h => <View key={h.id} style={s.headingRow}><Pressable accessibilityRole="button" accessibilityLabel={`切换到 ${h.name}`} onPress={() => switchHome(h.id)} style={[s.row, { flex: 1, minHeight: 48 }]}><Icon name={h.id === activeHomeId ? 'check-circle' : 'home'} /><Text style={[s.label, { flexShrink: 1 }]}>{h.name}</Text></Pressable><IconButton name="edit-2" label={`重命名家庭 ${h.name}`} onPress={() => openEditor('home', h)} /></View>)}<Button title="新建家" icon="plus" onPress={() => openEditor('home')} /></Sheet>}
-    {editor && <Sheet title={`${editor.id ? '重命名' : '新增'}${editor.kind === 'home' ? '家庭' : editor.kind === 'room' ? '房间' : editor.kind === 'category' ? '分类' : '模块'}`} onClose={() => setEditor(undefined)}><Field label="名称" value={draftName} onChangeText={setDraftName} />{!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}<Button title="保存名称" onPress={saveName} /></Sheet>}
+    {editor && <Sheet title={`${editor.id ? '编辑' : '新增'}${editor.kind === 'home' ? '家庭' : editor.kind === 'room' ? '房间' : editor.kind === 'category' ? '分类' : '模块'}`} onClose={() => setEditor(undefined)}><Field label="名称" value={draftName} onChangeText={setDraftName} />{editor.kind === 'container' && <View style={{ gap: 8, marginVertical: 10 }}><Text style={s.label}>模块颜色</Text><View style={s.wrap}>{MODULE_COLORS.map((color, index) => <Pressable key={color} accessibilityRole="radio" accessibilityLabel={`选择模块颜色 ${index + 1}`} accessibilityState={{ selected: draftColor.trim().toUpperCase() === color }} onPress={() => setDraftColor(color)} style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: color, borderWidth: draftColor.trim().toUpperCase() === color ? 3 : 1, borderColor: draftColor.trim().toUpperCase() === color ? colors.ink : colors.line, alignItems: 'center', justifyContent: 'center' }}>{draftColor.trim().toUpperCase() === color && <Text style={{ color: colors.ink, fontWeight: '700' }}>✓</Text>}</Pressable>)}</View><Field label="HEX 色值" value={draftColor} onChangeText={setDraftColor} placeholder="#C98F7A" /></View>}{!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}<Button title={editor.kind === 'container' ? '保存模块' : '保存名称'} onPress={saveName} /></Sheet>}
     {itemForm && <ItemForm rooms={currentRooms} containers={containers} categories={categories} initialLocation={itemForm.initialLocation} item={itemForm.item} onClose={() => setItemForm(undefined)} onSave={saveItem} />}
     {selectedItem && <Sheet title={selectedItem.name} onClose={() => setSelectedItemId(undefined)}><View style={{ gap: 12 }}><Text style={s.muted}>{path(selectedItem)}</Text><Text style={s.label}>分类：{categoryName(selectedItem.categoryId)}</Text><Text style={s.muted}>{selectedItem.expiry ? `过期日期：${selectedItem.expiry}` : '未设置保质期'}</Text><Button title="编辑物品" icon="edit-2" onPress={() => { setItemForm({ item: selectedItem }); setSelectedItemId(undefined); }} /><Button title="删除物品" icon="trash-2" secondary onPress={() => deleteItem(selectedItem)} /></View></Sheet>}
     {confirmation && <Sheet title={confirmation.title} onClose={() => setConfirmation(undefined)}><Text style={s.muted}>{confirmation.message}</Text><Button title="确认删除" onPress={() => { confirmation.run(); setConfirmation(undefined); }} /><Button title="取消" secondary onPress={() => setConfirmation(undefined)} /></Sheet>}
-  </SafeAreaView>;
+  </SafeAreaView></GestureHandlerRootView>;
 }
-
-function firstFreeCells(containers: Container[], roomId: string, parentId?: string) {
-  const occupied = new Set(directChildren(containers, roomId, parentId).flatMap(c => c.cells));
-  return Array.from({ length: 4 }, (_, offset) => Array.from({ length: 64 }, (_, i) => i).find(i => !occupied.has(i + offset)) ?? offset);
-}
-

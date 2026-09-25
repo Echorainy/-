@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { remainingDays, statistics, homeItems, locationPath, validateName, directChildren, directItems, containerDescendants, removeContainerContents } from '../src/domain.ts';
+import { DEFAULT_MODULE_COLOR, MODULE_COLORS, isValidHexColor, normalizeModuleColor, remainingDays, statistics, homeItems, locationPath, validateName, directChildren, directItems, containerDescendants, removeContainerContents } from '../src/domain.ts';
 
 const now = new Date(2026, 8, 24, 23, 59);
 const dates = ['2026-09-23', '2026-09-24', '2026-10-01', '2026-10-02', '2026-10-24', '2026-10-25', undefined];
@@ -50,4 +50,22 @@ test('container descendants include nested modules and remove their items', () =
   const result = removeContainerContents(containers, items, 'cabinet');
   assert.deepEqual(result.containers, []);
   assert.deepEqual(result.items.map(i => i.id), ['c']);
+});
+
+test('module colors expose the eight warm muted presets', () => {
+  assert.deepEqual(MODULE_COLORS, [
+    '#D6B59A', '#C98F7A', '#C9A0A0', '#D2AAA0',
+    '#A3AD96', '#A59D7A', '#D4BE8D', '#B4A393',
+  ]);
+  assert.equal(DEFAULT_MODULE_COLOR, '#A3AD96');
+});
+
+test('module colors normalize valid hex and reject invalid values', () => {
+  assert.equal(isValidHexColor('#C98F7A'), true);
+  assert.equal(isValidHexColor('#c98f7a'), true);
+  assert.equal(normalizeModuleColor('  #c98f7a '), '#C98F7A');
+  for (const value of ['', 'C98F7A', '#FFF', '#GGGGGG', '#1234567']) {
+    assert.equal(isValidHexColor(value), false);
+    assert.equal(normalizeModuleColor(value), DEFAULT_MODULE_COLOR);
+  }
 });

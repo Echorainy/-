@@ -1,11 +1,15 @@
 export type Home = { id: string; name: string };
 export type Room = { id: string; homeId: string; name: string; layout: { rows: 8; cols: 8 } };
-export type Container = { id: string; name: string; roomId: string; parentId?: string; level: 2 | 3; cells: number[] };
+export type Container = { id: string; name: string; roomId: string; parentId?: string; level: 2 | 3; cells: number[]; color?: string };
 export type Item = { id: string; name: string; roomId: string; containerId?: string; categoryId: string; cell?: number; expiry?: string; reminderDays: number };
 export type Category = { id: string; name: string; isSystem: boolean };
 export type Location = { roomId: string; containerId?: string };
 export type Filter = 'all' | 'month' | 'week' | 'expired';
 export const filterLabels: Record<Filter, string> = { all: '家庭物品', month: '30 天内过期', week: '7 天内过期', expired: '已过期' };
+export const MODULE_COLORS = ['#D6B59A', '#C98F7A', '#C9A0A0', '#D2AAA0', '#A3AD96', '#A59D7A', '#D4BE8D', '#B4A393'] as const;
+export const DEFAULT_MODULE_COLOR = '#A3AD96';
+export function isValidHexColor(value: string) { return /^#[0-9A-Fa-f]{6}$/.test(value.trim()); }
+export function normalizeModuleColor(value?: string) { return value && isValidHexColor(value) ? value.trim().toUpperCase() : DEFAULT_MODULE_COLOR; }
 
 export function localDate(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;

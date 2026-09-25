@@ -5,7 +5,11 @@ export type Snapshot = { homes: Home[]; rooms: Room[]; containers: Container[]; 
 export const emptySnapshot = (): Snapshot => createInitialData();
 
 export function encodeSnapshot(snapshot: Snapshot) { return JSON.stringify(snapshot); }
-export function decodeSnapshot(value: string): Snapshot { const parsed = JSON.parse(value); if (!isSnapshot(parsed)) throw new Error('Invalid snapshot'); return parsed; }
+export function decodeSnapshot(value: string): Snapshot {
+  const parsed = JSON.parse(value);
+  if (!isSnapshot(parsed)) throw new Error('Invalid snapshot');
+  return { ...parsed, containers: parsed.containers.map(container => ({ ...container, cells: [...new Set(container.cells)] })) };
+}
 function isSnapshot(value: unknown): value is Snapshot {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<Snapshot>;
