@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { AppState, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AppState, Image, ImageSourcePropType, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { localDate } from './domain';
 export type IconName = React.ComponentProps<typeof Feather>['name'];
-export const colors = { ink: '#242C2A', muted: '#64716C', line: '#DEE5E1', accent: '#28775C', soft: '#E9F4EE', danger: '#B44342' };
+export const colors = {
+  ink: '#3D220F', muted: '#806C58', line: '#E8DCCB', accent: '#708B72', soft: '#EAF0E5', danger: '#C86D57',
+  background: '#F8F3E9', surface: '#FFFAF4', honey: '#D9A15B', honeyLight: '#E7B56F', peach: '#F9B393', peachSoft: '#F4D6C7', cat: '#FFD093', catWhite: '#FFFAF4',
+  gridEmpty: '#FCF8F0', gridBlocked: '#E8EDE7',
+};
 export function Icon({ name, color = colors.ink }: { name: IconName; color?: string }) { return <Feather name={name} size={20} color={color} />; }
 export function IconButton({ name, label, onPress }: { name: IconName; label: string; onPress: () => void }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={s.iconButton}><Icon name={name} /></Pressable>;
@@ -20,7 +24,21 @@ export function Field({ label, value, onChangeText, placeholder, numeric = false
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return <Modal visible transparent animationType="fade" onRequestClose={onClose}><View style={s.backdrop}><View style={s.sheet} accessibilityViewIsModal><View style={s.headingRow}><Text style={s.h2}>{title}</Text><IconButton name="x" label="关闭弹窗" onPress={onClose} /></View><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 24 }}>{children}</ScrollView></View></View></Modal>;
 }
-export function Empty({ text }: { text: string }) { return <View style={s.empty}><Icon name="inbox" color={colors.muted} /><Text style={s.muted}>{text}</Text></View>; }
+export function Empty({ text }: { text: string }) { return <View style={s.empty}><Mascot source={require('../assets/cat-mascot-resting.png')} size={96} /><Text style={s.emptyTitle}>这里还空着</Text><Text style={s.muted}>{text}</Text></View>; }
+export function Mascot({ source, size = 96 }: { source?: ImageSourcePropType; size?: number }) {
+  if (source) return <Image accessibilityLabel="猫咪助手" source={source} resizeMode="contain" style={{ width: size, height: size }} />;
+  const ear = size * .24;
+  return <View accessibilityLabel="猫咪助手" style={[s.mascot, { width: size, height: size * 1.04 }]}>
+    <View style={[s.mascotEar, s.mascotEarLeft, { width: ear, height: ear }]} />
+    <View style={[s.mascotEar, s.mascotEarRight, { width: ear, height: ear }]} />
+    <View style={[s.mascotHead, { width: size * .72, height: size * .57, borderRadius: size * .28 }]}>
+      <View style={[s.mascotEye, { left: size * .2, top: size * .25 }]} />
+      <View style={[s.mascotEye, { right: size * .2, top: size * .25 }]} />
+      <View style={[s.mascotNose, { top: size * .36 }]} />
+    </View>
+    <View style={[s.mascotBody, { width: size * .66, height: size * .46, borderRadius: size * .22 }]}><View style={[s.mascotBelly, { width: size * .34, height: size * .22, borderRadius: size * .12 }]} /></View>
+  </View>;
+}
 export function useToday() {
   const [today, setToday] = useState(() => localDate());
   useEffect(() => {
@@ -36,14 +54,18 @@ export function useToday() {
   return new Date(`${today}T00:00:00`);
 }
 export const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#F6F8F7' }, content: { flex: 1, width: '100%', maxWidth: 760, alignSelf: 'center' },
+  screen: { flex: 1, backgroundColor: colors.background }, content: { flex: 1, width: '100%', maxWidth: 760, alignSelf: 'center' },
   page: { padding: 20, gap: 18, paddingBottom: 32 }, title: { fontSize: 28, fontWeight: '700', color: colors.ink, flexShrink: 1, letterSpacing: 0 }, h2: { fontSize: 18, fontWeight: '700', color: colors.ink, flexShrink: 1 },
   label: { fontSize: 14, fontWeight: '600', color: colors.ink }, muted: { color: colors.muted, fontSize: 13, lineHeight: 20 }, headingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 }, wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  field: { gap: 8, marginVertical: 10 }, input: { minHeight: 46, backgroundColor: '#FFF', borderWidth: 1, borderColor: colors.line, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16, color: colors.ink },
-  button: { minHeight: 46, padding: 12, borderRadius: 8, backgroundColor: colors.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginVertical: 4 }, buttonText: { color: '#FFF', fontWeight: '600', fontSize: 15, flexShrink: 1 }, secondary: { backgroundColor: colors.soft },
-  iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }, chip: { minHeight: 40, justifyContent: 'center', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.line, backgroundColor: '#FFF' }, chipSelected: { borderColor: colors.accent, backgroundColor: colors.soft },
-  card: { borderRadius: 8, backgroundColor: '#FFF', borderWidth: 1, borderColor: colors.line, padding: 14, gap: 8 }, itemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 12, borderBottomWidth: 1, borderColor: colors.line },
-  empty: { alignItems: 'center', padding: 28, gap: 12 }, backdrop: { flex: 1, backgroundColor: 'rgba(20,32,27,.42)', alignItems: 'center', justifyContent: 'center', padding: 16 }, sheet: { width: '100%', maxWidth: 560, maxHeight: '90%', backgroundColor: '#F6F8F7', borderRadius: 8, padding: 16 }, error: { color: colors.danger, marginVertical: 8 },
-  nav: { flexDirection: 'row', backgroundColor: '#FFF', borderTopWidth: 1, borderColor: colors.line }, navItem: { flex: 1, minHeight: 66, alignItems: 'center', justifyContent: 'center', gap: 5 }, navLabel: { fontSize: 12, color: colors.muted },
+  field: { gap: 8, marginVertical: 10 }, input: { minHeight: 48, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, fontSize: 16, color: colors.ink },
+  button: { minHeight: 48, padding: 12, borderRadius: 16, backgroundColor: colors.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginVertical: 4 }, buttonText: { color: '#FFF', fontWeight: '700', fontSize: 15, flexShrink: 1 }, secondary: { backgroundColor: colors.soft },
+  iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }, chip: { minHeight: 40, justifyContent: 'center', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface }, chipSelected: { borderColor: colors.accent, backgroundColor: colors.soft },
+  card: { borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, padding: 14, gap: 8 }, itemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 14, marginBottom: 10, gap: 12, borderWidth: 1, borderColor: colors.line, borderRadius: 16, backgroundColor: colors.surface },
+  empty: { alignItems: 'center', padding: 28, gap: 8 }, emptyTitle: { color: colors.ink, fontSize: 15, fontWeight: '700' }, backdrop: { flex: 1, backgroundColor: 'rgba(61,34,15,.34)', alignItems: 'center', justifyContent: 'center', padding: 16 }, sheet: { width: '100%', maxWidth: 560, maxHeight: '90%', backgroundColor: colors.background, borderRadius: 20, padding: 16 }, error: { color: colors.danger, marginVertical: 8 }, statusNormal: { alignSelf: 'center', paddingHorizontal: 9, paddingVertical: 5, borderRadius: 10, backgroundColor: colors.soft, color: colors.accent, fontSize: 12, fontWeight: '600' }, statusSoon: { alignSelf: 'center', paddingHorizontal: 9, paddingVertical: 5, borderRadius: 10, backgroundColor: colors.peachSoft, color: colors.ink, fontSize: 12, fontWeight: '600' }, statusExpired: { alignSelf: 'center', paddingHorizontal: 9, paddingVertical: 5, borderRadius: 10, backgroundColor: '#F0C5B4', color: colors.danger, fontSize: 12, fontWeight: '700' },
+  nav: { flexDirection: 'row', backgroundColor: colors.surface, borderTopWidth: 1, borderColor: colors.line }, navItem: { flex: 1, minHeight: 66, alignItems: 'center', justifyContent: 'center', gap: 5 }, navLabel: { fontSize: 12, color: colors.muted },
+  welcome: { backgroundColor: colors.accent, borderRadius: 24, borderWidth: 0, padding: 24, minHeight: 214, overflow: 'hidden' }, welcomeCopy: { flex: 1, gap: 8, paddingRight: 8 }, welcomeHome: { color: colors.surface, fontSize: 20, fontWeight: '700', flexShrink: 1 }, welcomeGreeting: { color: colors.surface, fontSize: 27, lineHeight: 34, fontWeight: '800', maxWidth: 220 }, welcomeNote: { color: '#E6EEE4', fontSize: 13, lineHeight: 20 }, searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 16, paddingLeft: 14 }, searchInput: { flex: 1, minHeight: 48, paddingHorizontal: 0, borderWidth: 0 }, statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 }, statCard: { width: '48%', minHeight: 74, padding: 14, borderRadius: 18, gap: 3, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface }, statHoney: { backgroundColor: colors.honeyLight, borderColor: colors.honeyLight }, statPeach: { backgroundColor: colors.peachSoft, borderColor: colors.peachSoft }, statTerracotta: { backgroundColor: '#C27454', borderColor: '#C27454' }, statGreen: { backgroundColor: '#DDE8DA', borderColor: '#DDE8DA' }, statSurface: { backgroundColor: colors.surface }, statLabel: { color: colors.ink, fontSize: 13, fontWeight: '600' }, statValue: { fontSize: 28, fontWeight: '800', color: colors.ink },
+  roomGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 }, roomCard: { width: '48%', minWidth: 240, padding: 12, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, gap: 12 }, roomPreview: { borderRadius: 14, overflow: 'hidden', backgroundColor: '#FCF8F0', borderWidth: 1, borderColor: colors.line }, roomCardHeader: { gap: 4 }, roomCardTitle: { fontSize: 17, fontWeight: '700', color: colors.ink }, roomCardMeta: { color: colors.muted, fontSize: 12 }, roomCardActions: { flexDirection: 'row', justifyContent: 'flex-end', borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 4 },
+  pageIntro: { gap: 4 }, sectionCard: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 20, padding: 16, gap: 14 }, sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }, sectionCaption: { color: colors.muted, fontSize: 12, lineHeight: 18 }, filterPanel: { backgroundColor: colors.soft, borderRadius: 16, padding: 12, gap: 10 }, filterChip: { backgroundColor: colors.surface }, itemListCard: { borderTopWidth: 1, borderTopColor: colors.line }, settingsRow: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 1, borderBottomColor: colors.line }, settingsRowLast: { borderBottomWidth: 0 }, settingsCopy: { flex: 1, minWidth: 0, gap: 3 }, settingsActions: { flexDirection: 'row', alignItems: 'center', gap: 2 }, statusBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: colors.soft, color: colors.accent, fontSize: 12, fontWeight: '600' },
+  mascot: { alignItems: 'center', justifyContent: 'flex-end', position: 'relative' }, mascotEar: { position: 'absolute', top: 0, backgroundColor: colors.cat, borderWidth: 3, borderColor: colors.ink, borderRadius: 8, transform: [{ rotate: '45deg' }] }, mascotEarLeft: { left: '16%' }, mascotEarRight: { right: '16%' }, mascotHead: { backgroundColor: colors.cat, borderWidth: 3, borderColor: colors.ink, alignItems: 'center', position: 'absolute', top: '10%' }, mascotEye: { width: 5, height: 16, borderRadius: 5, backgroundColor: colors.ink, position: 'absolute' }, mascotNose: { width: 7, height: 5, borderRadius: 5, backgroundColor: colors.ink, position: 'absolute' }, mascotBody: { backgroundColor: colors.cat, borderWidth: 3, borderColor: colors.ink, alignItems: 'center', justifyContent: 'center' }, mascotBelly: { backgroundColor: colors.catWhite, marginTop: 16 },
 });

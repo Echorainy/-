@@ -8,7 +8,9 @@ test('multiple homes, global search, scoped navigation and empty last room', asy
   await expect(page.getByRole('button', { name: '查看物品 乌龙茶' })).toBeVisible();
   await expect(page.getByRole('button', { name: '查看物品 创可贴' })).toHaveCount(0);
   await page.getByRole('tab', { name: '房间', exact: true }).click();
+  await expect(page.getByText(/把每个角落都放回它该在的地方/)).toBeVisible();
   await expect(page.getByRole('button', { name: '打开房间 厨房' })).toBeVisible();
+  await expect(page.getByText(/件物品 · 点击进入/).first()).toBeVisible();
   await expect(page.getByTestId('layout-grid')).toHaveCount(0);
   await page.getByRole('button', { name: '打开房间 厨房' }).click();
   await expect(page.getByRole('button', { name: '打开模块 第二层抽屉' })).toHaveCount(0);
@@ -102,10 +104,27 @@ test('category rename and deletion preserve item and update global search', asyn
   await expect(page.getByRole('button', { name: '查看物品 乌龙茶' })).toBeVisible();
 });
 
+test('items and settings use layered sections', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('tab', { name: '物品', exact: true }).click();
+  await expect(page.getByText('家里的物品', { exact: true })).toBeVisible();
+  await expect(page.getByText('筛选范围', { exact: true })).toBeVisible();
+  await expect(page.getByText('家庭物品', { exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: '设置', exact: true }).click();
+  await expect(page.getByText('家庭管理', { exact: true })).toBeVisible();
+  await expect(page.getByText('分类标签', { exact: true })).toBeVisible();
+  await expect(page.getByText('到期提醒', { exact: true })).toBeVisible();
+});
+
 for (const width of [320, 390, 1200]) test(`square grid and screenshots at ${width}`, async ({ page }) => {
   await page.setViewportSize({ width, height: 850 }); await page.goto('/');
   await expect(page.getByRole('button', { name: '选择家庭' })).toBeVisible();
+  await expect(page.getByLabel('猫咪助手').first()).toBeVisible();
   await page.screenshot({ path: `test-results/home-${width}.png`, fullPage: true });
+  await page.getByRole('tab', { name: '物品', exact: true }).click();
+  await page.screenshot({ path: `test-results/items-${width}.png`, fullPage: true });
+  await page.getByRole('tab', { name: '设置', exact: true }).click();
+  await page.screenshot({ path: `test-results/settings-${width}.png`, fullPage: true });
   await page.getByRole('tab', { name: '房间', exact: true }).click();
   await page.screenshot({ path: `test-results/rooms-${width}.png`, fullPage: true });
   await page.getByRole('button', { name: '打开房间 厨房' }).click();

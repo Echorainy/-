@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Platform, Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, TextInput, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Category, Container, Item, Location, Room, directChildren, localDate, parseDate } from './domain';
-import { Button, Chip, Field, Sheet, s } from './ui';
+import { Button, Chip, Field, Sheet, colors, s } from './ui';
 
 export function ItemForm({ rooms, containers, categories, initialLocation, item, onClose, onSave }: { rooms: Room[]; containers: Container[]; categories: Category[]; initialLocation?: Location; item?: Item; onClose: () => void; onSave: (item: Omit<Item, 'id'>, id?: string) => string | null }) {
   const [name, setName] = useState(item?.name ?? ''); const [categoryId, setCategoryId] = useState(item?.categoryId ?? 'uncategorized');
@@ -10,7 +10,7 @@ export function ItemForm({ rooms, containers, categories, initialLocation, item,
   const [withExpiry, setWithExpiry] = useState(!!item?.expiry); const [mode, setMode] = useState<'direct' | 'calculated'>('direct');
   const [date, setDate] = useState(item?.expiry ?? ''); const [production, setProduction] = useState(''); const [days, setDays] = useState(''); const [error, setError] = useState(''); const [picker, setPicker] = useState<'expiry' | 'production'>();
   const pickerValue = (value: string) => parseDate(value) ?? new Date();
-  const dateField = (label: string, value: string, kind: 'expiry' | 'production', onChange: (value: string) => void) => <><Pressable accessibilityRole="button" accessibilityLabel={label} onPress={() => setPicker(kind)} style={s.input}><Text style={{ color: value ? '#242C2A' : '#81918A' }}>{value || '选择日期'}</Text></Pressable>{picker === kind && <DateTimePicker value={pickerValue(value)} mode="date" display={Platform.OS === 'ios' ? 'inline' : 'default'} onChange={(_, selected) => { if (Platform.OS !== 'ios') setPicker(undefined); if (selected) onChange(localDate(selected)); }} />}</>;
+  const dateField = (label: string, value: string, kind: 'expiry' | 'production', onChange: (value: string) => void) => <>{Platform.OS === 'web' ? <TextInput accessibilityLabel={label} value={value} onChangeText={onChange} placeholder="YYYY-MM-DD" placeholderTextColor="#A89078" style={s.input} /> : <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={() => setPicker(kind)} style={s.input}><Text style={{ color: value ? colors.ink : colors.muted }}>{value || '选择日期'}</Text></Pressable>}{picker === kind && Platform.OS !== 'web' && <DateTimePicker value={pickerValue(value)} mode="date" display={Platform.OS === 'ios' ? 'inline' : 'default'} onChange={(_, selected) => { if (Platform.OS !== 'ios') setPicker(undefined); if (selected) onChange(localDate(selected)); }} />}</>;
   const save = () => {
     if (!name.trim()) return setError('请填写物品名称');
     if (!place || !rooms.some(r => r.id === place.roomId)) return setError('请选择房间');
