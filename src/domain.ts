@@ -14,7 +14,7 @@ export const LOCATION_TONES: Record<LocationTone, { background: string; border: 
   submodule: { background: '#E6D2D0', border: '#AC8584', text: '#704F50' },
 };
 export type Filter = 'all' | 'month' | 'week' | 'expired';
-export const filterLabels: Record<Filter, string> = { all: '家庭物品', month: '30 天内过期', week: '7 天内过期', expired: '已过期' };
+export const filterLabels: Record<Filter, string> = { all: '全部物品', month: '30 天内过期', week: '7 天内过期', expired: '已过期' };
 export const MODULE_COLORS = ['#D6B59A', '#C98F7A', '#C9A0A0', '#D2AAA0', '#A3AD96', '#A59D7A', '#D4BE8D', '#B4A393'] as const;
 export const DEFAULT_MODULE_COLOR = '#A3AD96';
 export function isValidHexColor(value: string) { return /^#[0-9A-Fa-f]{6}$/.test(value.trim()); }
@@ -81,6 +81,10 @@ export function removeContainerContents(containers: Container[], items: Item[], 
     containers: containers.filter(container => !ids.has(container.id)),
     items: items.filter(item => !item.containerId || !ids.has(item.containerId)),
   };
+}
+export function matchesCategory(item: Pick<Item, 'categoryId'>, categoryId?: string) { return !categoryId || item.categoryId === categoryId; }
+export function filterItems<T extends Pick<Item, 'categoryId'> & { expiry?: string }>(items: T[], filter: Filter, categoryId?: string, now = new Date()) {
+  return items.filter(item => matchesCategory(item, categoryId) && matchesFilter(item as unknown as Item, filter, now));
 }
 export function removeHomeContents<T extends { id: string }, R extends { id: string; homeId: string }, C extends { id: string; roomId: string }, I extends { id: string; roomId: string }>(data: { homes: T[]; rooms: R[]; containers: C[]; items: I[] }, homeId: string, requireRemaining = false) {
   if (requireRemaining && data.homes.length <= 1) return { error: '至少保留一个家' } as const;

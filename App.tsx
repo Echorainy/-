@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, BackHandler, Pressable, SafeAreaView, ScrollView, StatusBar, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Category, Container, Filter, Home, Item, Location, Room, DEFAULT_MODULE_COLOR, MODULE_COLORS, containerDescendants, createInitialData, directChildren, directItems, filterLabels, homeItems, isValidHexColor, locationPath, matchesFilter, moduleColorTextColor, normalizeModuleColor, removeContainerContents, removeHomeContents, validateName } from './src/domain';
+import { Category, Container, Filter, Home, Item, Location, Room, DEFAULT_MODULE_COLOR, MODULE_COLORS, containerDescendants, createInitialData, directChildren, directItems, filterItems, filterLabels, homeItems, isValidHexColor, locationPath, matchesFilter, moduleColorTextColor, normalizeModuleColor, removeContainerContents, removeHomeContents, validateName } from './src/domain';
 import { occupiedCells, validateCells } from './src/grid-edit';
 import { Button, Chip, Empty, Field, Icon, IconButton, IconName, Sheet, colors, s, useToday } from './src/ui';
 import { HomePage, ItemRows, LayoutPage, RoomsPage } from './src/pages';
@@ -23,6 +23,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('home');
   const [location, setLocation] = useState<Location | undefined>();
   const [filter, setFilter] = useState<Filter>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>();
   const [query, setQuery] = useState('');
   const [homeMenu, setHomeMenu] = useState(false);
   const [editor, setEditor] = useState<Editor>();
@@ -66,7 +67,7 @@ export default function App() {
   }, [tab, location, containers, homeMenu, editor, itemForm, selectedItemId, confirmation]);
 
   const switchHome = (id: string) => {
-    setActiveHomeId(id); setLocation(undefined); setFilter('all'); setQuery('');
+    setActiveHomeId(id); setLocation(undefined); setFilter('all'); setCategoryFilter(undefined); setQuery('');
     setHomeMenu(false); setItemForm(undefined); setSelectedItemId(undefined);
   };
   const openEditor = (kind: Editor['kind'], entity?: Home | Room | Category | Container, context?: { roomId?: string; parentId?: string }) => {
@@ -135,13 +136,14 @@ export default function App() {
       const result = removeHomeContents({ homes, rooms, containers, items }, homeToDelete.id, true);
       if ('error' in result) return;
       setData(data => ({ ...data, homes: result.homes, rooms: result.rooms, containers: result.containers, items: result.items }));
-      setActiveHomeId(result.homes[0]?.id ?? ''); setLocation(undefined); setFilter('all'); setQuery(''); setHomeMenu(false); setEditor(undefined); setItemForm(undefined); setSelectedItemId(undefined);
+      setActiveHomeId(result.homes[0]?.id ?? ''); setLocation(undefined); setFilter('all'); setCategoryFilter(undefined); setQuery(''); setHomeMenu(false); setEditor(undefined); setItemForm(undefined); setSelectedItemId(undefined);
     } });
   };
   const deleteCategory = (category: Category) => {
     if (category.id === 'uncategorized') return;
     setConfirmation({ title: `删除分类“${category.name}”？`, message: '物品会保留，分类改为“未分类”。此修改适用于所有家。', run: () => {
       setData(d => ({ ...d, categories: d.categories.filter(c => c.id !== category.id), items: d.items.map(i => i.categoryId === category.id ? { ...i, categoryId: 'uncategorized' } : i) }));
+      setCategoryFilter(current => current === category.id ? undefined : current);
     } });
   };
   const deleteItem = (item: Item) => {
@@ -150,7 +152,7 @@ export default function App() {
       void cancelItemReminder(item.id); setSelectedItemId(undefined);
     } });
   };
-  const chooseTab = (next: Tab) => { setTab(next); if (next === 'rooms') setLocation(undefined); if (next === 'items') setFilter('all'); };
+  const chooseTab = (next: Tab) => { setTab(next); if (next === 'rooms') setLocation(undefined); if (next === 'items') { setFilter('all'); setCategoryFilter(undefined); } };
   const nav: [Tab, IconName, string][] = [['home', 'home', '首页'], ['rooms', 'grid', '房间'], ['items', 'package', '物品'], ['settings', 'settings', '设置']];
 
   if (!hydrated) return <SafeAreaView style={s.screen}><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }}><ActivityIndicator color={colors.accent} /><Text style={s.muted}>正在读取本地数据…</Text></View></SafeAreaView>;
@@ -159,7 +161,7 @@ export default function App() {
     {tab === 'rooms' && (activeRoom && location
       ? <LayoutPage room={activeRoom} location={location} containers={containers} items={items} path={path(location)} onBack={back} onEnter={id => setLocation({ roomId: activeRoom.id, containerId: id })} onItem={i => setSelectedItemId(i.id)} onAdd={() => beginItem(location)} onCreateContainer={() => openEditor('container', undefined, { roomId: activeRoom.id, parentId: location.containerId })} onRenameContainer={c => openEditor('container', c)} onDeleteContainer={deleteContainer} onUpdateContainerCells={updateContainerCells} onDelete={() => deleteRoom(activeRoom)} renderItems={renderItems} />
       : <RoomsPage home={home} rooms={currentRooms} containers={containers} items={currentItems} onOpen={id => setLocation({ roomId: id })} onCreate={() => openEditor('room')} onRename={room => openEditor('room', room)} onDelete={deleteRoom} />)}
-    {tab === 'items' && <ScrollView contentContainerStyle={s.page}><View style={s.pageIntro}><Text style={s.title}>物品</Text><Text style={s.muted}>{home.name}</Text></View><View style={s.sectionCard}><View style={s.sectionHeader}><Text style={s.h2}>家里的物品</Text><Text style={s.muted}>{currentItems.length} 件</Text></View><Text style={s.sectionCaption}>按到期状态查看和整理家里的每件物品。</Text><View style={s.filterPanel}><Text style={s.label}>筛选范围</Text><View style={s.wrap}>{(Object.keys(filterLabels) as Filter[]).map(key => <Chip key={key} label={filterLabels[key]} selected={filter === key} onPress={() => setFilter(key)} />)}</View></View><View style={s.itemListCard}>{renderItems(currentItems.filter(i => matchesFilter(i, filter, now)))}</View></View><Button title="记录物品" icon="plus" onPress={() => beginItem()} /></ScrollView>}
+    {tab === 'items' && <ScrollView contentContainerStyle={s.page}><View style={s.pageIntro}><Text style={s.title}>物品</Text><Text style={s.muted}>{home.name}</Text></View><View style={s.sectionCard}><View style={s.sectionHeader}><Text style={s.h2}>家里的物品</Text><Text style={s.muted}>{currentItems.length} 件</Text></View><Text style={s.sectionCaption}>按到期状态和分类查看和整理家里的每件物品。</Text><View style={s.filterPanel}><Text style={s.label}>筛选范围</Text><View style={s.wrap}>{(Object.keys(filterLabels) as Filter[]).map(key => <Chip key={key} label={filterLabels[key]} selected={filter === key} onPress={() => setFilter(key)} />)}</View><Text style={s.label}>物品分类</Text><View style={s.wrap}><Chip label="全部分类" selected={!categoryFilter} onPress={() => setCategoryFilter(undefined)} />{categories.map(category => <Chip key={category.id} label={category.name} selected={categoryFilter === category.id} onPress={() => setCategoryFilter(category.id)} />)}</View></View><View style={s.itemListCard}>{renderItems(filterItems(currentItems, filter, categoryFilter, now))}</View></View><Button title="记录物品" icon="plus" onPress={() => beginItem()} /></ScrollView>}
     {tab === 'settings' && <ScrollView contentContainerStyle={s.page}><View style={s.pageIntro}><Text style={s.title}>设置</Text><Text style={s.muted}>把家庭、分类和提醒整理成适合你的样子。</Text></View><View style={s.sectionCard}><View style={s.sectionHeader}><Text style={s.h2}>家庭管理</Text><Text style={s.statusBadge}>{homes.length} 个家</Text></View>{homes.map((h, index) => <View key={h.id} style={[s.settingsRow, index === homes.length - 1 && s.settingsRowLast]}><Pressable accessibilityRole="button" accessibilityLabel={`切换到 ${h.name}`} onPress={() => switchHome(h.id)} style={[s.row, s.settingsCopy]}><Icon name={activeHomeId === h.id ? 'check-circle' : 'home'} color={activeHomeId === h.id ? colors.accent : colors.muted} /><Text style={[s.label, { flexShrink: 1 }]}>{h.name}</Text></Pressable><View style={s.settingsActions}><IconButton name="edit-2" label={`重命名家庭 ${h.name}`} onPress={() => openEditor('home', h)} />{homes.length > 1 && <IconButton name="trash-2" label={`删除家庭 ${h.name}`} onPress={() => deleteHome(h)} />}</View></View>)}<Button title="新建家" icon="plus" secondary onPress={() => openEditor('home')} /></View><View style={s.sectionCard}><View style={s.sectionHeader}><Text style={s.h2}>分类标签</Text><Text style={s.statusBadge}>{categories.length} 个分类</Text></View>{categories.map((c, index) => <View key={c.id} style={[s.settingsRow, index === categories.length - 1 && s.settingsRowLast]}><View style={s.settingsCopy}><Text style={s.label}>{c.name}</Text><Text style={s.sectionCaption}>{c.isSystem ? '系统分类' : '可编辑分类'}</Text></View>{!c.isSystem && <View style={s.settingsActions}><IconButton name="edit-2" label={`修改分类 ${c.name}`} onPress={() => openEditor('category', c)} /><IconButton name="trash-2" label={`删除分类 ${c.name}`} onPress={() => deleteCategory(c)} /></View>}</View>)}<Button title="新增分类" icon="plus" secondary onPress={() => openEditor('category')} /></View><View style={s.sectionCard}><View style={s.sectionHeader}><Text style={s.h2}>到期提醒</Text><Icon name="bell" color={colors.accent} /></View><Text style={s.sectionCaption}>{!notificationsAvailable ? '当前预览环境不启用系统通知，请安装独立开发版测试到期提醒。' : notificationPermission === 'granted' ? '已允许发送本地通知' : '尚未允许发送本地通知'}</Text><Button title="启用到期提醒" icon="bell" secondary disabled={!notificationsAvailable || notificationPermission === 'granted'} onPress={() => { void requestNotificationPermission().then(granted => { setNotificationPermission(granted ? 'granted' : 'denied'); if (granted) void rescheduleAllReminders(items); }); }} /></View></ScrollView>}
   </View><View style={s.nav}>{nav.map(([key, icon, label]) => <Pressable key={key} accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected: tab === key }} style={s.navItem} onPress={() => chooseTab(key)}><Icon name={icon} color={tab === key ? colors.accent : colors.muted} /><Text style={[s.navLabel, tab === key && { color: colors.accent }]}>{label}</Text></Pressable>)}</View>
     {homeMenu && <Sheet title="选择家庭" onClose={() => setHomeMenu(false)}>{homes.map(h => <View key={h.id} style={s.headingRow}><Pressable accessibilityRole="button" accessibilityLabel={`切换到 ${h.name}`} onPress={() => switchHome(h.id)} style={[s.row, { flex: 1, minHeight: 48 }]}><Icon name={h.id === activeHomeId ? 'check-circle' : 'home'} /><Text style={[s.label, { flexShrink: 1 }]}>{h.name}</Text></Pressable><IconButton name="edit-2" label={`重命名家庭 ${h.name}`} onPress={() => openEditor('home', h)} />{homes.length > 1 && <IconButton name="trash-2" label={`删除家庭 ${h.name}`} onPress={() => deleteHome(h)} />}</View>)}<Button title="新建家" icon="plus" onPress={() => openEditor('home')} /></Sheet>}

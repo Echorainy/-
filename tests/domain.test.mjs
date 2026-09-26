@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_MODULE_COLOR, LOCATION_TONES, MODULE_COLORS, isValidHexColor, moduleColorTextColor, normalizeModuleColor, remainingDays, statistics, homeItems, locationPath, validateName, directChildren, directItems, containerDescendants, removeContainerContents, removeHomeContents } from '../src/domain.ts';
+import { DEFAULT_MODULE_COLOR, LOCATION_TONES, MODULE_COLORS, isValidHexColor, moduleColorTextColor, normalizeModuleColor, remainingDays, statistics, homeItems, locationPath, validateName, directChildren, directItems, containerDescendants, removeContainerContents, removeHomeContents, filterItems, matchesCategory } from '../src/domain.ts';
 
 const now = new Date(2026, 8, 24, 23, 59);
 const dates = ['2026-09-23', '2026-09-24', '2026-10-01', '2026-10-02', '2026-10-24', '2026-10-25', undefined];
@@ -87,4 +87,18 @@ test('removing a home removes only its rooms, modules, and items', () => {
   const data = { homes: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }], rooms: [{ id: 'ar', homeId: 'a' }, { id: 'br', homeId: 'b' }], containers: [{ id: 'ac', roomId: 'ar' }, { id: 'bc', roomId: 'br' }], items: [{ id: 'ai', roomId: 'ar' }, { id: 'bi', roomId: 'br' }] };
   assert.deepEqual(removeHomeContents(data, 'a'), { homes: [{ id: 'b', name: 'B' }], rooms: [{ id: 'br', homeId: 'b' }], containers: [{ id: 'bc', roomId: 'br' }], items: [{ id: 'bi', roomId: 'br' }] });
   assert.equal(removeHomeContents({ ...data, homes: [data.homes[0]] }, 'a', true).error, '至少保留一个家');
+});
+
+test('category filters combine with expiry filters', () => {
+  assert.equal(matchesCategory({ categoryId: 'drink' }, 'drink'), true);
+  assert.equal(matchesCategory({ categoryId: 'drink' }, 'food'), false);
+  assert.equal(matchesCategory({ categoryId: 'drink' }, undefined), true);
+  const sample = [
+    { id: 'a', categoryId: 'drink', expiry: '2026-09-24' },
+    { id: 'b', categoryId: 'drink', expiry: '2026-10-01' },
+    { id: 'c', categoryId: 'food', expiry: '2026-09-23' },
+  ];
+  assert.deepEqual(filterItems(sample, 'all', 'drink', now).map(i => i.id), ['a', 'b']);
+  assert.deepEqual(filterItems(sample, 'week', 'drink', now).map(i => i.id), ['a', 'b']);
+  assert.deepEqual(filterItems(sample, 'expired', undefined, now).map(i => i.id), ['c']);
 });

@@ -3,7 +3,7 @@ const { test, expect } = require('@playwright/test');
 test('multiple homes, global search, scoped navigation and empty last room', async ({ page }) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await page.goto('/');
-  await expect(page.getByRole('button', { name: '家庭物品 2', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '全部物品 2', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '30 天内过期 1', exact: true }).click();
   await expect(page.getByRole('button', { name: '查看物品 乌龙茶' })).toBeVisible();
   await expect(page.getByRole('button', { name: '查看物品 创可贴' })).toHaveCount(0);
@@ -27,7 +27,7 @@ test('multiple homes, global search, scoped navigation and empty last room', asy
   await expect(page.getByRole('alert')).toContainText('已经存在');
   await page.getByRole('textbox', { name: '名称', exact: true }).fill(' 周末小屋 ');
   await page.getByRole('button', { name: '保存名称' }).click();
-  await expect(page.getByRole('button', { name: '家庭物品 0', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '全部物品 0', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '记录物品', exact: true }).click();
   await expect(page.getByText('新增房间', { exact: true }).last()).toBeVisible();
   await page.getByRole('textbox', { name: '名称', exact: true }).fill('厨房');
@@ -37,7 +37,7 @@ test('multiple homes, global search, scoped navigation and empty last room', asy
   await page.getByRole('textbox', { name: '物品名称', exact: true }).fill('乌龙茶');
   await page.getByRole('button', { name: '保存物品' }).click();
   await page.getByRole('tab', { name: '首页', exact: true }).click();
-  await expect(page.getByRole('button', { name: '家庭物品 1', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '全部物品 1', exact: true })).toBeVisible();
   await page.getByRole('textbox', { name: '搜索所有家的物品' }).fill('乌龙茶');
   await expect(page.getByRole('button', { name: '查看物品 乌龙茶' })).toHaveCount(2);
   await expect(page.getByText('周末小屋 → 厨房', { exact: true })).toBeVisible();
@@ -56,17 +56,17 @@ test('multiple homes, global search, scoped navigation and empty last room', asy
   await page.getByRole('button', { name: '确认删除', exact: true }).click();
   await expect(page.getByText('这个家还没有房间', { exact: true })).toBeVisible();
   await page.getByRole('tab', { name: '首页', exact: true }).click();
-  await expect(page.getByRole('button', { name: '家庭物品 0', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '全部物品 0', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '选择家庭' }).click();
   await page.getByRole('button', { name: '切换到 我的家', exact: true }).click();
-  await expect(page.getByRole('button', { name: '家庭物品 2', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '全部物品 2', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '记录物品', exact: true }).click();
   await page.getByRole('textbox', { name: '物品名称', exact: true }).fill('钥匙');
   await page.getByRole('button', { name: '保存物品' }).click();
   await expect(page.getByRole('alert')).toContainText('请选择房间');
   await page.getByRole('radio', { name: '卧室', exact: true }).click();
   await page.getByRole('button', { name: '保存物品' }).click();
-  await expect(page.getByRole('button', { name: '家庭物品 3', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '全部物品 3', exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -108,7 +108,7 @@ test('items and settings use layered sections', async ({ page }) => {
   await page.getByRole('tab', { name: '物品', exact: true }).click();
   await expect(page.getByText('家里的物品', { exact: true })).toBeVisible();
   await expect(page.getByText('筛选范围', { exact: true })).toBeVisible();
-  await expect(page.getByText('家庭物品', { exact: true })).toBeVisible();
+  await expect(page.getByText('全部物品', { exact: true })).toBeVisible();
   await page.getByRole('tab', { name: '设置', exact: true }).click();
   await expect(page.getByText('家庭管理', { exact: true })).toBeVisible();
   await expect(page.getByText('分类标签', { exact: true })).toBeVisible();
