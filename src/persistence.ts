@@ -1,4 +1,4 @@
-import { createInitialData } from './domain.ts';
+import { createInitialData, isSystemCategory } from './domain.ts';
 import type { Category, Container, Home, Item, Room } from './domain.ts';
 
 export type Snapshot = { homes: Home[]; rooms: Room[]; containers: Container[]; items: Item[]; categories: Category[] };
@@ -8,7 +8,7 @@ export function encodeSnapshot(snapshot: Snapshot) { return JSON.stringify(snaps
 export function decodeSnapshot(value: string): Snapshot {
   const parsed = JSON.parse(value);
   if (!isSnapshot(parsed)) throw new Error('Invalid snapshot');
-  return { ...parsed, containers: parsed.containers.map(container => ({ ...container, cells: [...new Set(container.cells)] })) };
+  return { ...parsed, containers: parsed.containers.map(container => ({ ...container, cells: [...new Set(container.cells)] })), categories: parsed.categories.map(category => ({ ...category, isSystem: category.isSystem || isSystemCategory(category.id) })) };
 }
 function isSnapshot(value: unknown): value is Snapshot {
   if (!value || typeof value !== 'object') return false;

@@ -1,0 +1,8 @@
+.eas-appdata/
+.eas-pnpm-cache/
+.eas-pnpm-store/
+.eas-npm-cache/
+.pnpm-store/
+node_modules/
+.git/
+*.log

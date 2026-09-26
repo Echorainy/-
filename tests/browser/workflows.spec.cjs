@@ -127,6 +127,14 @@ for (const width of [320, 390, 1200]) test(`square grid and screenshots at ${wid
   await page.screenshot({ path: `test-results/settings-${width}.png`, fullPage: true });
   await page.getByRole('tab', { name: '房间', exact: true }).click();
   await page.screenshot({ path: `test-results/rooms-${width}.png`, fullPage: true });
+  const roomBoxes = await page.getByTestId('grid-preview').evaluateAll(nodes => nodes.map(node => {
+    const box = node.getBoundingClientRect();
+    return { x: box.x, y: box.y, right: box.right };
+  }));
+  expect(roomBoxes).toHaveLength(2);
+  expect(Math.abs(roomBoxes[0].y - roomBoxes[1].y)).toBeLessThan(1);
+  expect(roomBoxes[1].x).toBeGreaterThan(roomBoxes[0].right);
+  expect(roomBoxes[1].right).toBeLessThanOrEqual(width);
   await page.getByRole('button', { name: '打开房间 厨房' }).click();
   await expect(page.getByTestId('cell-63')).toBeVisible();
   const boxes = await page.locator('[data-testid^="cell-"]').evaluateAll(nodes => nodes.map(n => { const b = n.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height }; }));

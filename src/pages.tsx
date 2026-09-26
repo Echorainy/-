@@ -1,9 +1,11 @@
 import React, { useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import { Container, Filter, Home, Item, Location, Room, directChildren, directItems, filterLabels, moduleColorTextColor, normalizeModuleColor, remainingDays, statistics } from './domain';
-import { Button, Empty, Icon, IconButton, Mascot, colors, s } from './ui';
+import { Button, Chip, Empty, Icon, IconButton, Mascot, colors, s } from './ui';
 import { cellAt, cellFromGesture, occupiedCellsForContainer } from './grid-edit';
+import { clothingItems, filterClothing, mockClothingAI, suggestOutfit } from './clothing';
 
 export function GridEditor({ initialCells, blockedCells, color, onCancel, onSave }: { initialCells: number[]; blockedCells: number[]; color?: string; onCancel: () => void; onSave: (cells: number[]) => string | null }) {
   const [width, setWidth] = useState(0);
@@ -82,8 +84,8 @@ export function Grid({ children, items, preview = false, onContainer, onItem, ed
   const paintAt = (x: number, y: number) => { if (!editingId || painted.current.has(cellAt(x, y, width) ?? -1)) return; const cell = cellAt(x, y, width); if (cell === null) return; painted.current.add(cell); onToggleCell?.(cell); };
   return <View testID={preview ? 'grid-preview' : 'layout-grid'} onLayout={e => setWidth(e.nativeEvent.layout.width)} onStartShouldSetResponderCapture={() => !!editingId} onResponderGrant={e => { painted.current.clear(); paintAt(e.nativeEvent.locationX, e.nativeEvent.locationY); }} onResponderMove={e => paintAt(e.nativeEvent.locationX, e.nativeEvent.locationY)} onResponderRelease={() => painted.current.clear()} style={{ width: '100%', aspectRatio: 1, backgroundColor: colors.gridEmpty, overflow: 'hidden' }}>
     {width > 0 && Array.from({ length: 64 }, (_, cell) => {
-      const child = children.find(c => c.cells.includes(cell)); const item = items.find(i => i.cell === cell); const editing = !!editingId; const selected = !!draftCells?.includes(cell);
-      return <Pressable key={cell} testID={preview ? undefined : `cell-${cell}`} accessibilityRole={child || item || editing ? 'button' : undefined} accessibilityLabel={editing ? `编辑第 ${cell + 1} 格` : child ? `进入模块 ${child.name}` : item ? `查看物品 ${item.name}` : undefined} disabled={preview || (!editing && !child && !item)} onPress={() => editing ? onToggleCell?.(cell) : child ? onContainer?.(child.id) : item && onItem?.(item)} style={{ position: 'absolute', left: (cell % 8) * size, top: Math.floor(cell / 8) * size, width: size, height: size, borderWidth: .5, borderColor: colors.line, backgroundColor: editing && selected ? normalizeModuleColor(child?.color) : child ? normalizeModuleColor(child.color) : item ? colors.peachSoft : colors.gridEmpty, padding: preview ? 0 : 2, justifyContent: 'center', overflow: 'hidden' }}>
+      const child = children.find(c => c.cells.includes(cell)); const item = items.find(i => i.cell === cell); const editing = !!editingId; const selected = !!draftCells?.includes(cell); const childColor = child ? normalizeModuleColor(child.color) : undefined;
+      return <Pressable key={cell} testID={preview ? undefined : `cell-${cell}`} accessibilityRole={child || item || editing ? 'button' : undefined} accessibilityLabel={editing ? `编辑第 ${cell + 1} 格` : child ? `进入模块 ${child.name}` : item ? `查看物品 ${item.name}` : undefined} disabled={preview || (!editing && !child && !item)} onPress={() => editing ? onToggleCell?.(cell) : child ? onContainer?.(child.id) : item && onItem?.(item)} style={{ position: 'absolute', left: (cell % 8) * size, top: Math.floor(cell / 8) * size, width: size, height: size, borderWidth: .5, borderColor: colors.line, backgroundColor: editing && selected ? childColor : childColor ?? (item ? colors.peachSoft : colors.gridEmpty), padding: preview ? 0 : 2, justifyContent: 'center', overflow: 'hidden' }}>
         {!preview && <Text numberOfLines={2} style={{ fontSize: 10, textAlign: 'center', color: colors.ink }}>{child?.cells[0] === cell ? child.name : item?.name}</Text>}
       </Pressable>;
     })}
@@ -98,15 +100,40 @@ export function RoomsPage({ home, rooms, items, containers, onOpen, onCreate, on
     </View>)}</View><Button title="新增房间" icon="plus" onPress={onCreate} />
   </ScrollView>;
 }
+
+export function WardrobePage({ items, onOpenItem }: { items: Item[]; onOpenItem: (item: Item) => void }) {
+  const [subcategory, setSubcategory] = useState<string>();
+  const [suggestion, setSuggestion] = useState<Awaited<ReturnType<typeof suggestOutfit>>>();
+  const [personImageUri, setPersonImageUri] = useState<string>();
+  const [tryOnUri, setTryOnUri] = useState<string>();
+  const wardrobe = filterClothing(items, { subcategory });
+  const buildSuggestion = async () => setSuggestion(await suggestOutfit({ clothingItems: wardrobe, weather: { temperature: 20, condition: '晴天' }, scene: '日常', goal: '舒适' }));
+  const choosePerson = async () => { const permission = await ImagePicker.requestMediaLibraryPermissionsAsync(); if (!permission.granted) return; const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: .8 }); if (!result.canceled && result.assets[0]?.uri) setPersonImageUri(result.assets[0].uri); };
+  const makeTryOn = async () => { if (!personImageUri || !suggestion) return; setTryOnUri((await mockClothingAI.generateTryOn({ itemIds: suggestion.itemIds, personImageUri })).imageUri); };
+  return <ScrollView contentContainerStyle={s.page}><View style={s.pageIntro}><Text style={s.title}>智能衣柜</Text><Text style={s.muted}>把衣物整理成今天可以穿的灵感。</Text></View><View style={s.sectionCard}><View style={s.sectionHeader}><Text style={s.h2}>衣物概览</Text><Text style={s.statusBadge}>{clothingItems(items).length} 件衣物</Text></View><View style={s.wrap}>{['全部', '上衣', '下装', '连衣裙', '外套', '鞋', '配饰'].map(value => <Chip key={value} label={value} selected={value === '全部' ? !subcategory : subcategory === value} onPress={() => setSubcategory(value === '全部' ? undefined : value)} />)}</View></View>{wardrobe.length ? <View style={s.wardrobeGrid}>{wardrobe.map(item => { const image = item.clothing?.cutoutUri || item.clothing?.imageUri; return <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`查看衣物 ${item.name}`} onPress={() => onOpenItem(item)} style={s.wardrobeCard}>{image ? <Image source={{ uri: image }} resizeMode="contain" style={s.wardrobeImage} /> : <View style={s.wardrobePlaceholder}><Icon name="image" color={colors.muted} /><Text style={s.muted}>待添加照片</Text></View>}<Text style={s.label} numberOfLines={1}>{item.name}</Text><Text style={s.sectionCaption}>{item.clothing?.subcategory ?? '待识别'} · {(item.clothing?.styleTags ?? []).join('、') || '待补充'}</Text></Pressable>; })}</View> : <Empty text="还没有衣物，记录物品时选择衣物分类即可加入。" />}<View style={s.sectionCard}><Text style={s.h2}>今日穿搭</Text><Text style={s.sectionCaption}>模拟建议会结合当前衣橱、天气和日常场景。</Text><Button title="生成穿搭建议" icon="star" secondary onPress={() => { void buildSuggestion(); }} />{suggestion && <><Text style={s.label}>{suggestion.explanation}</Text><Text style={s.sectionCaption}>{suggestion.weatherReason}</Text><Text style={s.sectionCaption}>{suggestion.sceneReason}</Text><Text style={s.sectionCaption}>{suggestion.styleReason}</Text><Button title={personImageUri ? '更换本人照片' : '选择本人照片试穿'} icon="image" secondary onPress={() => { void choosePerson(); }} />{personImageUri && <Button title="生成模拟试穿" onPress={() => { void makeTryOn(); }} />}{tryOnUri && <Text style={s.sectionCaption}>试穿展示已生成（模拟结果）。</Text>}</>}</View></ScrollView>;
+}
 export function LayoutPage({ room, location, containers, items, path, onBack, onEnter, onItem, onAdd, onCreateContainer, onRenameContainer, onDeleteContainer, onUpdateContainerCells, onDelete, renderItems }: { room: Room; location: Location; containers: Container[]; items: Item[]; path: string; onBack: () => void; onEnter: (id: string) => void; onItem: (item: Item) => void; onAdd: () => void; onCreateContainer: () => void; onRenameContainer: (container: Container) => void; onDeleteContainer: (container: Container) => void; onUpdateContainerCells: (id: string, cells: number[]) => string | null; onDelete: () => void; renderItems: (items: Item[]) => React.ReactNode }) {
   const [editingId, setEditingId] = useState<string>();
   const [draftCells, setDraftCells] = useState<number[]>([]);
   const current = containers.find(c => c.id === location.containerId);
+  const isTerminal = current?.level === 3;
   const children = directChildren(containers, room.id, location.containerId);
   const contents = directItems(items, room.id, location.containerId);
   return <ScrollView scrollEnabled={!editingId} contentContainerStyle={s.page}><View style={s.headingRow}><IconButton name="arrow-left" label="返回上一级" onPress={onBack} /><Text style={[s.h2, { flex: 1 }]}>{editingId ? `编辑布局 · ${children.find(c => c.id === editingId)?.name ?? ''}` : current?.name ?? room.name}</Text>{!editingId && (current ? <View style={s.row}><IconButton name="edit-2" label={`重命名模块 ${current.name}`} onPress={() => onRenameContainer(current)} /><IconButton name="trash-2" label={`删除模块 ${current.name}`} onPress={() => onDeleteContainer(current)} /></View> : <IconButton name="trash-2" label="删除房间" onPress={onDelete} />)}</View>
-    <Text style={s.muted}>{path}</Text>{editingId ? <GridEditor initialCells={[...new Set(draftCells)]} blockedCells={[...occupiedCellsForContainer(editingId, containers, items)]} color={containers.find(c => c.id === editingId)?.color} onSave={cells => { const message = onUpdateContainerCells(editingId, cells); if (!message) setEditingId(undefined); return message; }} onCancel={() => setEditingId(undefined)} /> : <View style={{ width: '100%', maxWidth: 480, alignSelf: 'center' }}><Grid children={children} items={contents} onContainer={onEnter} onItem={onItem} /></View>}
-    {editingId ? null : children.map(child => <View key={child.id} style={s.itemRow}><Pressable accessibilityRole="button" accessibilityLabel={`打开模块 ${child.name}`} onPress={() => onEnter(child.id)} style={[s.row, { flex: 1 }]}><View accessibilityLabel={`模块颜色 ${normalizeModuleColor(child.color)}`} style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: normalizeModuleColor(child.color), borderWidth: 1, borderColor: colors.line }} /><Icon name="archive" /><Text style={[s.label, { flex: 1 }]}>{child.name}</Text><Icon name="chevron-right" /></Pressable><Button title="编辑布局" icon="grid" secondary onPress={() => { setEditingId(child.id); setDraftCells(child.cells); }} /><IconButton name="edit-2" label={`重命名模块 ${child.name}`} onPress={() => onRenameContainer(child)} /><IconButton name="trash-2" label={`删除模块 ${child.name}`} onPress={() => onDeleteContainer(child)} /></View>)}
+    <Text style={s.muted}>{path}</Text>{editingId ? <GridEditor initialCells={[...new Set(draftCells)]} blockedCells={[...occupiedCellsForContainer(editingId, containers, items)]} color={containers.find(c => c.id === editingId)?.color} onSave={cells => { const message = onUpdateContainerCells(editingId, cells); if (!message) setEditingId(undefined); return message; }} onCancel={() => setEditingId(undefined)} /> : !isTerminal && <View style={{ width: '100%', maxWidth: 480, alignSelf: 'center' }}><Grid children={children} items={contents} onContainer={onEnter} onItem={onItem} /></View>}
+    {editingId ? null : children.map(child => <View key={child.id} style={s.moduleCard}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`打开模块 ${child.name}`} onPress={() => onEnter(child.id)} style={s.moduleNameRow}>
+        <View accessibilityLabel={`模块颜色 ${normalizeModuleColor(child.color)}`} style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: normalizeModuleColor(child.color), borderWidth: 1, borderColor: colors.line }} />
+        <Icon name="archive" />
+        <Text style={[s.label, s.moduleName]} numberOfLines={1} ellipsizeMode="tail">{child.name}</Text>
+        <Icon name="chevron-right" />
+      </Pressable>
+      <View style={s.moduleActions}>
+        <Button title="编辑布局" icon="grid" secondary onPress={() => { setEditingId(child.id); setDraftCells(child.cells); }} />
+        <IconButton name="edit-2" label={`重命名模块 ${child.name}`} onPress={() => onRenameContainer(child)} />
+        <IconButton name="trash-2" label={`删除模块 ${child.name}`} onPress={() => onDeleteContainer(child)} />
+      </View>
+    </View>)}
     {!editingId && <><Text style={s.h2}>直属物品</Text>{renderItems(contents)}<Button title="在此位置记录物品" icon="plus" onPress={onAdd} />{(!current || current.level < 3) && <Button title="新增模块" icon="archive" secondary onPress={onCreateContainer} />}</>}
   </ScrollView>;
 }

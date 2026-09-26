@@ -37,3 +37,8 @@ test('old snapshots without module colors remain readable with the default color
   }));
   assert.equal(normalizeModuleColor(snapshot.containers[0].color), DEFAULT_MODULE_COLOR);
 });
+
+test('old snapshots mark clothing as a protected system category', () => {
+  const snapshot = decodeSnapshot(encodeSnapshot({ homes: [], rooms: [], containers: [], items: [], categories: [{ id: 'clothes', name: '衣物', isSystem: false }] }));
+  assert.equal(snapshot.categories[0].isSystem, true);
+});

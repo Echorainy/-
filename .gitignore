@@ -5,3 +5,9 @@ dist/
 test-results/
 playwright-report/
 .pnpm-store/
+.eas-appdata/
+.eas-npm-cache/
+.eas-pnpm-cache/
+.eas-pnpm-store/
+dist-check-android/
+dist-check-ios/

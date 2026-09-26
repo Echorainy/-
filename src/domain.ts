@@ -1,11 +1,20 @@
 export type Home = { id: string; name: string };
 export type Room = { id: string; homeId: string; name: string; layout: { rows: 8; cols: 8 } };
 export type Container = { id: string; name: string; roomId: string; parentId?: string; level: 2 | 3; cells: number[]; color?: string };
-export type Item = { id: string; name: string; roomId: string; containerId?: string; categoryId: string; cell?: number; expiry?: string; reminderDays: number };
+export type ClothingData = { imageUri?: string; cutoutUri?: string; subcategory?: string; styleTags?: string[]; colors?: string[]; seasonTags?: string[]; recognitionStatus?: 'pending' | 'confirmed' | 'failed' };
+export type Item = { id: string; name: string; roomId: string; containerId?: string; categoryId: string; cell?: number; expiry?: string; reminderDays: number; clothing?: ClothingData };
 export type Category = { id: string; name: string; isSystem: boolean };
 export type Location = { roomId: string; containerId?: string };
 export type Filter = 'all' | 'month' | 'week' | 'expired';
 export const filterLabels: Record<Filter, string> = { all: '家庭物品', month: '30 天内过期', week: '7 天内过期', expired: '已过期' };
+export type LocationTone = 'neutral' | 'room' | 'module' | 'submodule';
+export const LOCATION_TONES: Record<LocationTone, { background: string; border: string; text: string }> = {
+  neutral: { background: '#F1E4B8', border: '#B5A56E', text: '#665A32' },
+  room: { background: '#D8E3D2', border: '#7F987A', text: '#50634D' },
+  module: { background: '#D2DEE5', border: '#7893A2', text: '#4E6572' },
+  submodule: { background: '#E6D2D0', border: '#AC8584', text: '#704F50' },
+};
+export function isSystemCategory(id: string) { return id === 'clothes' || id === 'uncategorized'; }
 export const MODULE_COLORS = ['#D6B59A', '#C98F7A', '#C9A0A0', '#D2AAA0', '#A3AD96', '#A59D7A', '#D4BE8D', '#B4A393'] as const;
 export const DEFAULT_MODULE_COLOR = '#A3AD96';
 export function isValidHexColor(value: string) { return /^#[0-9A-Fa-f]{6}$/.test(value.trim()); }
@@ -73,6 +82,16 @@ export function removeContainerContents(containers: Container[], items: Item[], 
     items: items.filter(item => !item.containerId || !ids.has(item.containerId)),
   };
 }
+export function removeHomeContents<T extends { id: string }, R extends { id: string; homeId: string }, C extends { id: string; roomId: string }, I extends { id: string; roomId: string }>(data: { homes: T[]; rooms: R[]; containers: C[]; items: I[] }, homeId: string, requireRemaining = false) {
+  if (requireRemaining && data.homes.length <= 1) return { error: '至少保留一个家' } as const;
+  const roomIds = new Set(data.rooms.filter(room => room.homeId === homeId).map(room => room.id));
+  return {
+    homes: data.homes.filter(home => home.id !== homeId),
+    rooms: data.rooms.filter(room => room.homeId !== homeId),
+    containers: data.containers.filter(container => !roomIds.has(container.roomId)),
+    items: data.items.filter(item => !roomIds.has(item.roomId)),
+  };
+}
 export function locationPath(roomId: string, containerId: string | undefined, homes: Home[], rooms: Room[], containers: Container[]) {
   const room = rooms.find(r => r.id === roomId);
   if (!room) return '';
@@ -103,6 +122,6 @@ export function createInitialData() {
     { id: 'tea', name: '乌龙茶', roomId: 'kitchen', containerId: 'drawer', categoryId: 'drink', cell: 18, expiry: localDate(expiry), reminderDays: 7 },
     { id: 'bandage', name: '创可贴', roomId: 'bedroom', categoryId: 'medicine', cell: 5, reminderDays: 7 },
   ];
-  const categories: Category[] = [['food', '食品'], ['drink', '饮品'], ['medicine', '药品'], ['cleaning', '清洁用品'], ['clothes', '衣物'], ['tools', '工具'], ['documents', '文件'], ['other', '其他'], ['uncategorized', '未分类']].map(([id, name]) => ({ id, name, isSystem: id === 'uncategorized' }));
+  const categories: Category[] = [['food', '食品'], ['drink', '饮品'], ['medicine', '药品'], ['cleaning', '清洁用品'], ['clothes', '衣物'], ['tools', '工具'], ['documents', '文件'], ['other', '其他'], ['uncategorized', '未分类']].map(([id, name]) => ({ id, name, isSystem: isSystemCategory(id) }));
   return { homes, rooms, containers, items, categories };
 }
