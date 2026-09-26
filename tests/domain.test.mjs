@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_MODULE_COLOR, MODULE_COLORS, isValidHexColor, moduleColorTextColor, normalizeModuleColor, remainingDays, statistics, homeItems, locationPath, validateName, directChildren, directItems, containerDescendants, removeContainerContents } from '../src/domain.ts';
+import { DEFAULT_MODULE_COLOR, LOCATION_TONES, MODULE_COLORS, isValidHexColor, moduleColorTextColor, normalizeModuleColor, remainingDays, statistics, homeItems, locationPath, validateName, directChildren, directItems, containerDescendants, removeContainerContents, removeHomeContents } from '../src/domain.ts';
 
 const now = new Date(2026, 8, 24, 23, 59);
 const dates = ['2026-09-23', '2026-09-24', '2026-10-01', '2026-10-02', '2026-10-24', '2026-10-25', undefined];
@@ -74,4 +74,17 @@ test('module colors choose readable text contrast', () => {
   assert.equal(moduleColorTextColor('#C98F7A'), '#242C2A');
   assert.equal(moduleColorTextColor('#463B32'), '#FFFDF8');
   assert.equal(moduleColorTextColor(undefined), '#242C2A');
+});
+
+test('location tones provide distinct soft colors for each placement level', () => {
+  assert.deepEqual(LOCATION_TONES.neutral, { background: '#F1E4B8', border: '#B5A56E', text: '#665A32' });
+  assert.deepEqual(LOCATION_TONES.room, { background: '#D8E3D2', border: '#7F987A', text: '#50634D' });
+  assert.deepEqual(LOCATION_TONES.module, { background: '#D2DEE5', border: '#7893A2', text: '#4E6572' });
+  assert.deepEqual(LOCATION_TONES.submodule, { background: '#E6D2D0', border: '#AC8584', text: '#704F50' });
+});
+
+test('removing a home removes only its rooms, modules, and items', () => {
+  const data = { homes: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }], rooms: [{ id: 'ar', homeId: 'a' }, { id: 'br', homeId: 'b' }], containers: [{ id: 'ac', roomId: 'ar' }, { id: 'bc', roomId: 'br' }], items: [{ id: 'ai', roomId: 'ar' }, { id: 'bi', roomId: 'br' }] };
+  assert.deepEqual(removeHomeContents(data, 'a'), { homes: [{ id: 'b', name: 'B' }], rooms: [{ id: 'br', homeId: 'b' }], containers: [{ id: 'bc', roomId: 'br' }], items: [{ id: 'bi', roomId: 'br' }] });
+  assert.equal(removeHomeContents({ ...data, homes: [data.homes[0]] }, 'a', true).error, '至少保留一个家');
 });

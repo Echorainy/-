@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AppState, Image, ImageSourcePropType, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { localDate } from './domain';
+import { LOCATION_TONES, LocationTone, localDate } from './domain';
 export type IconName = React.ComponentProps<typeof Feather>['name'];
 export const colors = {
   ink: '#3D220F', muted: '#806C58', line: '#E8DCCB', accent: '#708B72', soft: '#EAF0E5', danger: '#C86D57',
@@ -16,8 +16,9 @@ export function IconButton({ name, label, onPress }: { name: IconName; label: st
 export function Button({ title, onPress, secondary = false, icon, disabled = false }: { title: string; onPress: () => void; secondary?: boolean; icon?: IconName; disabled?: boolean }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={title} disabled={disabled} onPress={onPress} style={[s.button, secondary && s.secondary, disabled && { opacity: .4 }]}>{icon && <Icon name={icon} color={secondary ? colors.accent : '#FFF'} />}<Text style={[s.buttonText, secondary && { color: colors.accent }]}>{title}</Text></Pressable>;
 }
-export function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
-  return <Pressable accessibilityRole="radio" accessibilityState={{ checked: selected }} accessibilityLabel={label} onPress={onPress} style={[s.chip, selected && s.chipSelected]}><Text style={{ color: selected ? colors.accent : colors.ink }}>{label}</Text></Pressable>;
+export function Chip({ label, selected, onPress, tone }: { label: string; selected: boolean; onPress: () => void; tone?: LocationTone }) {
+  const palette = tone ? LOCATION_TONES[tone] : undefined;
+  return <Pressable accessibilityRole="radio" accessibilityState={{ checked: selected }} accessibilityLabel={label} onPress={onPress} style={[s.chip, tone && { borderColor: palette!.border }, selected && (tone ? { backgroundColor: palette!.background, borderColor: palette!.border } : s.chipSelected)]}><Text style={{ color: selected && tone ? palette!.text : colors.ink }}>{label}</Text></Pressable>;
 }
 export function Field({ label, value, onChangeText, placeholder, numeric = false }: { label: string; value: string; onChangeText: (v: string) => void; placeholder?: string; numeric?: boolean }) {
   return <View style={s.field}><Text style={s.label}>{label}</Text><TextInput accessibilityLabel={label} style={s.input} value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor="#81918A" keyboardType={numeric ? 'number-pad' : 'default'} /></View>;

@@ -4,6 +4,13 @@ export type Container = { id: string; name: string; roomId: string; parentId?: s
 export type Item = { id: string; name: string; roomId: string; containerId?: string; categoryId: string; cell?: number; expiry?: string; reminderDays: number };
 export type Category = { id: string; name: string; isSystem: boolean };
 export type Location = { roomId: string; containerId?: string };
+export type LocationTone = 'neutral' | 'room' | 'module' | 'submodule';
+export const LOCATION_TONES: Record<LocationTone, { background: string; border: string; text: string }> = {
+  neutral: { background: '#F1E4B8', border: '#B5A56E', text: '#665A32' },
+  room: { background: '#D8E3D2', border: '#7F987A', text: '#50634D' },
+  module: { background: '#D2DEE5', border: '#7893A2', text: '#4E6572' },
+  submodule: { background: '#E6D2D0', border: '#AC8584', text: '#704F50' },
+};
 export type Filter = 'all' | 'month' | 'week' | 'expired';
 export const filterLabels: Record<Filter, string> = { all: '家庭物品', month: '30 天内过期', week: '7 天内过期', expired: '已过期' };
 export const MODULE_COLORS = ['#D6B59A', '#C98F7A', '#C9A0A0', '#D2AAA0', '#A3AD96', '#A59D7A', '#D4BE8D', '#B4A393'] as const;
@@ -72,6 +79,11 @@ export function removeContainerContents(containers: Container[], items: Item[], 
     containers: containers.filter(container => !ids.has(container.id)),
     items: items.filter(item => !item.containerId || !ids.has(item.containerId)),
   };
+}
+export function removeHomeContents<T extends { id: string }, R extends { id: string; homeId: string }, C extends { id: string; roomId: string }, I extends { id: string; roomId: string }>(data: { homes: T[]; rooms: R[]; containers: C[]; items: I[] }, homeId: string, requireRemaining = false) {
+  if (requireRemaining && data.homes.length <= 1) return { error: '至少保留一个家' } as const;
+  const roomIds = new Set(data.rooms.filter(room => room.homeId === homeId).map(room => room.id));
+  return { homes: data.homes.filter(home => home.id !== homeId), rooms: data.rooms.filter(room => room.homeId !== homeId), containers: data.containers.filter(container => !roomIds.has(container.roomId)), items: data.items.filter(item => !roomIds.has(item.roomId)) };
 }
 export function locationPath(roomId: string, containerId: string | undefined, homes: Home[], rooms: Room[], containers: Container[]) {
   const room = rooms.find(r => r.id === roomId);
