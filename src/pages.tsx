@@ -106,7 +106,19 @@ export function LayoutPage({ room, location, containers, items, path, onBack, on
   const contents = directItems(items, room.id, location.containerId);
   return <ScrollView scrollEnabled={!editingId} contentContainerStyle={s.page}><View style={s.headingRow}><IconButton name="arrow-left" label="返回上一级" onPress={onBack} /><Text style={[s.h2, { flex: 1 }]}>{editingId ? `编辑布局 · ${children.find(c => c.id === editingId)?.name ?? ''}` : current?.name ?? room.name}</Text>{!editingId && (current ? <View style={s.row}><IconButton name="edit-2" label={`重命名模块 ${current.name}`} onPress={() => onRenameContainer(current)} /><IconButton name="trash-2" label={`删除模块 ${current.name}`} onPress={() => onDeleteContainer(current)} /></View> : <IconButton name="trash-2" label="删除房间" onPress={onDelete} />)}</View>
     <Text style={s.muted}>{path}</Text>{editingId ? <GridEditor initialCells={[...new Set(draftCells)]} blockedCells={[...occupiedCellsForContainer(editingId, containers, items)]} color={containers.find(c => c.id === editingId)?.color} onSave={cells => { const message = onUpdateContainerCells(editingId, cells); if (!message) setEditingId(undefined); return message; }} onCancel={() => setEditingId(undefined)} /> : <View style={{ width: '100%', maxWidth: 480, alignSelf: 'center' }}><Grid children={children} items={contents} onContainer={onEnter} onItem={onItem} /></View>}
-    {editingId ? null : children.map(child => <View key={child.id} style={s.itemRow}><Pressable accessibilityRole="button" accessibilityLabel={`打开模块 ${child.name}`} onPress={() => onEnter(child.id)} style={[s.row, { flex: 1 }]}><View accessibilityLabel={`模块颜色 ${normalizeModuleColor(child.color)}`} style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: normalizeModuleColor(child.color), borderWidth: 1, borderColor: colors.line }} /><Icon name="archive" /><Text style={[s.label, { flex: 1 }]}>{child.name}</Text><Icon name="chevron-right" /></Pressable><Button title="编辑布局" icon="grid" secondary onPress={() => { setEditingId(child.id); setDraftCells(child.cells); }} /><IconButton name="edit-2" label={`重命名模块 ${child.name}`} onPress={() => onRenameContainer(child)} /><IconButton name="trash-2" label={`删除模块 ${child.name}`} onPress={() => onDeleteContainer(child)} /></View>)}
+    {editingId ? null : children.map(child => <View key={child.id} style={s.moduleCard}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`打开模块 ${child.name}`} onPress={() => onEnter(child.id)} style={s.moduleNameRow}>
+        <View accessibilityLabel={`模块颜色 ${normalizeModuleColor(child.color)}`} style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: normalizeModuleColor(child.color), borderWidth: 1, borderColor: colors.line }} />
+        <Icon name="archive" />
+        <Text style={[s.label, s.moduleName]} numberOfLines={1} ellipsizeMode="tail">{child.name}</Text>
+        <Icon name="chevron-right" />
+      </Pressable>
+      <View style={s.moduleActions}>
+        <Button title="编辑布局" icon="grid" secondary onPress={() => { setEditingId(child.id); setDraftCells(child.cells); }} />
+        <IconButton name="edit-2" label={`重命名模块 ${child.name}`} onPress={() => onRenameContainer(child)} />
+        <IconButton name="trash-2" label={`删除模块 ${child.name}`} onPress={() => onDeleteContainer(child)} />
+      </View>
+    </View>)}
     {!editingId && <><Text style={s.h2}>直属物品</Text>{renderItems(contents)}<Button title="在此位置记录物品" icon="plus" onPress={onAdd} />{(!current || current.level < 3) && <Button title="新增模块" icon="archive" secondary onPress={onCreateContainer} />}</>}
   </ScrollView>;
 }
