@@ -3,14 +3,24 @@
     "name": "家里放哪儿",
     "slug": "home-whereabouts",
     "version": "0.1.0",
+    "icon": "./assets/app-icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "android": {
+      "package": "com.echorainy.homewhereabouts",
+      "versionCode": 1
+    },
     "assetBundlePatterns": [
       "**/*"
     ],
     "plugins": [
       "expo-notifications",
       "@react-native-community/datetimepicker"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "0c1767ca-91db-4e5d-83bd-914e402de0ac"
+      }
+    }
   }
 }
