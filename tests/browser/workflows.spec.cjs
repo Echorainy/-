@@ -80,7 +80,6 @@ test('today expiry becomes expired across midnight without a reload', async ({ p
   await page.getByRole('textbox', { name: '过期日期', exact: true }).fill('2026-09-24');
   await page.getByRole('button', { name: '保存物品', exact: true }).click();
   await expect(page.getByRole('button', { name: '7 天内过期 1', exact: true })).toBeVisible();
-  await expect(page.getByText('今天到期', { exact: true })).toBeVisible();
   await page.clock.fastForward(180000);
   await expect(page.getByRole('button', { name: '7 天内过期 0', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '已过期 1', exact: true })).toBeVisible();
@@ -114,6 +113,28 @@ test('items and settings use layered sections', async ({ page }) => {
   await expect(page.getByText('家庭管理', { exact: true })).toBeVisible();
   await expect(page.getByText('分类标签', { exact: true })).toBeVisible();
   await expect(page.getByText('到期提醒', { exact: true })).toBeVisible();
+});
+
+test('long pressing the home card opens editable copy', async ({ page }) => {
+  await page.goto('/');
+  const card = page.getByRole('button', { name: '编辑首页问候语' });
+  await card.dispatchEvent('contextmenu');
+  await expect(page.getByText('编辑首页文案', { exact: true })).toBeVisible();
+  await page.getByRole('textbox', { name: '主标题', exact: true }).fill('欢迎回家');
+  await page.getByRole('textbox', { name: '副标题', exact: true }).fill('每件物品都有自己的位置');
+  await page.getByRole('button', { name: '保存文案', exact: true }).click();
+  await expect(page.getByText('欢迎回家', { exact: true })).toBeVisible();
+  await expect(page.getByText('每件物品都有自己的位置', { exact: true })).toBeVisible();
+});
+
+test('home actions appear before expiry reminders', async ({ page }) => {
+  await page.goto('/');
+  const order = await page.locator('body *').evaluateAll(nodes => nodes
+    .filter(node => ['记录物品', '搜索所有家的物品', '到期提醒'].includes((node.textContent || '').trim()) || node.getAttribute('aria-label') === '搜索所有家的物品')
+    .map(node => (node.textContent || node.getAttribute('aria-label') || '').trim())
+    .filter((value, index, values) => values.indexOf(value) === index));
+  expect(order.indexOf('记录物品')).toBeLessThan(order.indexOf('搜索所有家的物品'));
+  expect(order.indexOf('搜索所有家的物品')).toBeLessThan(order.indexOf('到期提醒'));
 });
 
 for (const width of [320, 390, 1200]) test(`square grid and screenshots at ${width}`, async ({ page }) => {

@@ -1,8 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Animated, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
-import { Container, Filter, Home, Item, Location, Room, directChildren, directItems, filterLabels, moduleColorTextColor, normalizeModuleColor, remainingDays, statistics } from './domain';
-import { Button, Empty, Icon, IconButton, Mascot, colors, s } from './ui';
+import { Container, Filter, Home, Item, Location, Room, DEFAULT_HOME_GREETING, DEFAULT_HOME_NOTE, directChildren, directItems, filterLabels, moduleColorTextColor, normalizeModuleColor, remainingDays, statistics } from './domain';
+import { Button, Empty, Field, Icon, IconButton, Mascot, Sheet, colors, s } from './ui';
 import { cellAt, cellFromGesture, occupiedCellsForContainer } from './grid-edit';
 
 export function GridEditor({ initialCells, blockedCells, color, onCancel, onSave }: { initialCells: number[]; blockedCells: number[]; color?: string; onCancel: () => void; onSave: (cells: number[]) => string | null }) {
@@ -62,17 +62,23 @@ export function ItemRows({ items, path, categoryName, now, onItem }: { items: It
     return <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`查看物品 ${item.name}`} onPress={() => onItem(item)} style={s.itemRow}><Icon name="package" color={days !== null && days < 0 ? colors.danger : colors.accent} /><View style={{ flex: 1, gap: 4, minWidth: 0 }}><Text style={s.label} numberOfLines={1}>{item.name}</Text><Text style={s.muted} numberOfLines={1}>{path(item)}</Text><Text style={s.muted} numberOfLines={1}>{categoryName(item.categoryId)}</Text></View><Text style={statusStyle}>{status}</Text></Pressable>;
   })}</View>;
 }
-export function HomePage({ home, items, query, setQuery, searchResults, onHomes, onFilter, onAdd, renderItems, now }: { home: Home; items: Item[]; query: string; setQuery: (q: string) => void; searchResults: Item[]; onHomes: () => void; onFilter: (filter: Filter) => void; onAdd: () => void; renderItems: (items: Item[]) => React.ReactNode; now: Date }) {
+export function HomePage({ home, items, query, setQuery, searchResults, onHomes, onFilter, onAdd, onSaveCopy, renderItems, now }: { home: Home; items: Item[]; query: string; setQuery: (q: string) => void; searchResults: Item[]; onHomes: () => void; onFilter: (filter: Filter) => void; onAdd: () => void; onSaveCopy: (greeting: string, note: string) => void; renderItems: (items: Item[]) => React.ReactNode; now: Date }) {
   const counts = statistics(items, now);
-  const upcoming = items.filter(i => { const days = remainingDays(i.expiry, now); return days !== null && days <= 7; }).sort((a, b) => a.expiry!.localeCompare(b.expiry!));
+  const [editingCopy, setEditingCopy] = useState(false);
+  const scale = useRef(new Animated.Value(1)).current;
+  const [greeting, setGreeting] = useState(home.greeting ?? DEFAULT_HOME_GREETING);
+  const [note, setNote] = useState(home.note ?? DEFAULT_HOME_NOTE);
+  React.useEffect(() => { setGreeting(home.greeting ?? DEFAULT_HOME_GREETING); setNote(home.note ?? DEFAULT_HOME_NOTE); }, [home.id, home.greeting, home.note]);
+  const animateBack = () => Animated.spring(scale, { toValue: 1, useNativeDriver: true, tension: 180, friction: 16 }).start();
+  const openCopyEditor = () => { animateBack(); setTimeout(() => setEditingCopy(true), 180); };
+  const startPress = () => Animated.timing(scale, { toValue: 1.04, duration: 450, useNativeDriver: true }).start();
   return <ScrollView contentContainerStyle={s.page} keyboardShouldPersistTaps="handled">
-    <View style={[s.welcome, s.headingRow]}><View style={s.welcomeCopy}><Pressable accessibilityRole="button" accessibilityLabel="选择家庭" onPress={onHomes} style={s.row}><Text style={s.welcomeHome}>{home.name}</Text><Icon name="chevron-down" color={colors.surface} /></Pressable><Text style={s.welcomeGreeting}>今天也要把家照顾好</Text><Text style={s.welcomeNote}>喵今天好好收纳了吗</Text></View><Mascot source={require('../assets/cat-mascot.png')} size={104} /></View>
-    <View style={s.searchWrap}><Icon name="search" color={colors.muted} /><TextInput accessibilityLabel="搜索所有家的物品" placeholder="搜索物品、分类或位置" value={query} onChangeText={setQuery} style={[s.input, s.searchInput]} /></View>
-    {query.trim() ? <><Text style={s.h2}>搜索结果 · {searchResults.length}</Text>{renderItems(searchResults)}</> : <>
-      <Text style={s.h2}>到期提醒</Text><View style={s.statsGrid}>{(Object.keys(filterLabels) as Filter[]).map(filter => { const tone = filter === 'all' ? s.statHoney : filter === 'month' ? s.statPeach : filter === 'week' ? s.statGreen : filter === 'expired' ? s.statTerracotta : s.statSurface; return <Pressable accessibilityRole="button" accessibilityLabel={`${filterLabels[filter]} ${counts[filter]}`} key={filter} onPress={() => onFilter(filter)} style={[s.statCard, tone]}><Text style={s.statLabel}>{filterLabels[filter]}</Text><Text style={s.statValue}>{counts[filter]}</Text></Pressable>; })}</View>
-      <Text style={s.h2}>到期概览</Text>{upcoming.length ? renderItems(upcoming) : <Empty text="暂无临期或已过期物品" />}
-    </>}
+    <Animated.View style={{ transform: [{ scale }] }}><Pressable {...({ onContextMenu: openCopyEditor } as any)} accessibilityRole="button" accessibilityLabel="编辑首页问候语" onPressIn={startPress} onPressOut={animateBack} onLongPress={openCopyEditor} delayLongPress={500} style={[s.welcome, s.headingRow]}><View style={s.welcomeCopy}><Pressable accessibilityRole="button" accessibilityLabel="选择家庭" onPress={onHomes} style={s.row}><Text style={s.welcomeHome}>{home.name}</Text><Icon name="chevron-down" color={colors.surface} /></Pressable><Text style={s.welcomeGreeting}>{home.greeting ?? DEFAULT_HOME_GREETING}</Text><Text style={s.welcomeNote}>{home.note ?? DEFAULT_HOME_NOTE}</Text></View><Mascot source={require('../assets/cat-mascot.png')} size={104} /></Pressable></Animated.View>
     <Button title="记录物品" icon="plus" onPress={onAdd} />
+    <View style={s.searchWrap}><Icon name="search" color={colors.muted} /><TextInput accessibilityLabel="搜索所有家的物品" placeholder="搜索物品、分类或位置" value={query} onChangeText={setQuery} style={[s.input, s.searchInput]} /></View>
+    {!query.trim() && <><Text style={s.h2}>到期提醒</Text><View style={s.statsGrid}>{(Object.keys(filterLabels) as Filter[]).map(filter => { const tone = filter === 'all' ? s.statHoney : filter === 'month' ? s.statPeach : filter === 'week' ? s.statGreen : s.statTerracotta; return <Pressable accessibilityRole="button" accessibilityLabel={`${filterLabels[filter]} ${counts[filter]}`} key={filter} onPress={() => onFilter(filter)} style={[s.statCard, tone]}><Text style={s.statLabel}>{filterLabels[filter]}</Text><Text style={s.statValue}>{counts[filter]}</Text></Pressable>; })}</View></>}
+    {query.trim() && <><Text style={s.h2}>搜索结果 · {searchResults.length}</Text>{renderItems(searchResults)}</>}
+    {editingCopy && <Sheet title="编辑首页文案" onClose={() => { setEditingCopy(false); animateBack(); }}><Field label="主标题" value={greeting} onChangeText={setGreeting} placeholder={DEFAULT_HOME_GREETING} /><Field label="副标题" value={note} onChangeText={setNote} placeholder={DEFAULT_HOME_NOTE} /><Button title="保存文案" onPress={() => { onSaveCopy(greeting.trim() || DEFAULT_HOME_GREETING, note.trim() || DEFAULT_HOME_NOTE); setEditingCopy(false); animateBack(); }} /><Button title="取消" secondary onPress={() => { setEditingCopy(false); animateBack(); }} /></Sheet>}
   </ScrollView>;
 }
 export function Grid({ children, items, preview = false, onContainer, onItem, editingId, draftCells, onToggleCell }: { children: Container[]; items: Item[]; preview?: boolean; onContainer?: (id: string) => void; onItem?: (item: Item) => void; editingId?: string; draftCells?: number[]; onToggleCell?: (cell: number) => void }) {

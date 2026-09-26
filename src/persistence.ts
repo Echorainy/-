@@ -1,4 +1,5 @@
 import { createInitialData } from './domain.ts';
+import { DEFAULT_HOME_GREETING, DEFAULT_HOME_NOTE } from './domain.ts';
 import type { Category, Container, Home, Item, Room } from './domain.ts';
 
 export type Snapshot = { homes: Home[]; rooms: Room[]; containers: Container[]; items: Item[]; categories: Category[] };
@@ -8,7 +9,7 @@ export function encodeSnapshot(snapshot: Snapshot) { return JSON.stringify(snaps
 export function decodeSnapshot(value: string): Snapshot {
   const parsed = JSON.parse(value);
   if (!isSnapshot(parsed)) throw new Error('Invalid snapshot');
-  return { ...parsed, containers: parsed.containers.map(container => ({ ...container, cells: [...new Set(container.cells)] })) };
+  return { ...parsed, homes: parsed.homes.map(home => ({ ...home, greeting: home.greeting ?? DEFAULT_HOME_GREETING, note: home.note ?? DEFAULT_HOME_NOTE })), containers: parsed.containers.map(container => ({ ...container, cells: [...new Set(container.cells)] })) };
 }
 function isSnapshot(value: unknown): value is Snapshot {
   if (!value || typeof value !== 'object') return false;

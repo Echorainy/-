@@ -1,4 +1,6 @@
-export type Home = { id: string; name: string };
+export type Home = { id: string; name: string; greeting?: string; note?: string };
+export const DEFAULT_HOME_GREETING = '今天也要把家照顾好';
+export const DEFAULT_HOME_NOTE = '喵今天好好收纳了吗';
 export type Room = { id: string; homeId: string; name: string; layout: { rows: 8; cols: 8 } };
 export type Container = { id: string; name: string; roomId: string; parentId?: string; level: 2 | 3; cells: number[]; color?: string };
 export type Item = { id: string; name: string; roomId: string; containerId?: string; categoryId: string; cell?: number; expiry?: string; reminderDays: number };
@@ -105,7 +107,7 @@ export function validateName(name: string, scope: { id: string; name: string }[]
 }
 export function createInitialData() {
   const expiry = new Date(); expiry.setDate(expiry.getDate() + 26);
-  const homes: Home[] = [{ id: 'home', name: '我的家' }];
+  const homes: Home[] = [{ id: 'home', name: '我的家', greeting: DEFAULT_HOME_GREETING, note: DEFAULT_HOME_NOTE }];
   const rooms: Room[] = ['厨房', '卧室'].map((name, index) => ({ id: index === 0 ? 'kitchen' : 'bedroom', homeId: 'home', name, layout: { rows: 8, cols: 8 } }));
   const containers: Container[] = [
     { id: 'cabinet', name: '左侧橱柜', roomId: 'kitchen', level: 2, cells: [9, 10, 17, 18] },
